@@ -19,8 +19,8 @@ class SwarmTest(Test) :
             r"app3\.example\.com": getenv("TEST_DOMAIN3")
         }
 
-    def init() :
-        try :
+    def init():
+        try:
             if not Test.init() :
                 return False
             proc = run("sudo chown -R root:root /tmp/bw-data", shell=True)
@@ -38,17 +38,17 @@ class SwarmTest(Test) :
                 raise(Exception("docker stack deploy failed (swarm stack)"))
             i = 0
             healthy = False
-            while i < 90 :
+            while i < 90:
                 proc = run('docker stack ps --no-trunc --format "{{ .CurrentState }}" bunkerweb | grep -v "Running"', cwd="/tmp/swarm", shell=True, capture_output=True)
-                if "" == proc.stdout.decode() :
+                if proc.stdout.decode() == "":
                     healthy = True
                     break
                 sleep(1)
                 i += 1
-            if not healthy :
+            if not healthy:
                 proc = run('docker service logs bunkerweb_mybunker ; docker service logs bunkerweb_myautoconf', cwd="/tmp/swarm", shell=True, capture_output=True)
-                log("SWARM", "❌", "stdout logs = " + proc.stdout.decode())
-                log("SWARM", "❌", "stderr logs = " + proc.stderr.decode())
+                log("SWARM", "❌", f"stdout logs = {proc.stdout.decode()}")
+                log("SWARM", "❌", f"stderr logs = {proc.stderr.decode()}")
                 raise(Exception("swarm stack is not healthy"))
             sleep(60)
         except :
@@ -70,42 +70,40 @@ class SwarmTest(Test) :
             return False
         return ret
 
-    def _setup_test(self) :
-        try :
+    def _setup_test(self):
+        try:
             super()._setup_test()
-            test = "/tmp/tests/" + self._name
-            compose = "/tmp/tests/" + self._name + "/swarm.yml"
-            example_data = "./examples/" + self._name + "/bw-data"
+            test = f"/tmp/tests/{self._name}"
+            compose = f"/tmp/tests/{self._name}/swarm.yml"
+            example_data = f"./examples/{self._name}/bw-data"
             for ex_domain, test_domain in self._domains.items() :
                 Test.replace_in_files(test, ex_domain, test_domain)
                 Test.rename(test, ex_domain, test_domain)
             Test.replace_in_files(test, "example.com", getenv("ROOT_DOMAIN"))
-            setup = test + "/setup-swarm.sh"
+            setup = f"{test}/setup-swarm.sh"
             if isfile(setup) :
                 proc = run("sudo ./setup-swarm.sh", cwd=test, shell=True)
                 if proc.returncode != 0 :
                     raise(Exception("setup-swarm failed"))
-            # if isdir(example_data) :
-                # for cp_dir in listdir(example_data) :
-                    # if isdir(join(example_data, cp_dir)) :
-                        # if isdir(join("/tmp/bw-data", cp_dir)) :
-                            # run("sudo rm -rf " + join("/tmp/bw-data", cp_dir), shell=True)
-                        # copytree(join(example_data, cp_dir), join("/tmp/bw-data", cp_dir))
-            proc = run('docker stack deploy -c swarm.yml "' + self._name + '"', shell=True, cwd=test)
+            proc = run(
+                f'docker stack deploy -c swarm.yml "{self._name}"',
+                shell=True,
+                cwd=test,
+            )
             if proc.returncode != 0 :
                 raise(Exception("docker stack deploy failed"))
             i = 0
             healthy = False
-            while i < self._timeout :
+            while i < self._timeout:
                 proc = run('docker stack services --format "{{ .Name }}" ' + self._name, cwd="/tmp/swarm", shell=True, capture_output=True)
                 if proc.returncode != 0 :
                     raise(Exception("swarm stack is not healthy (cmd1 failed)"))
                 all_healthy = True
-                for service in proc.stdout.decode().splitlines() :
+                for service in proc.stdout.decode().splitlines():
                     proc2 = run('docker service ps --format "{{ .CurrentState }}" ' + service, cwd="/tmp/swarm", shell=True, capture_output=True)
                     if proc2.returncode != 0 :
                         raise(Exception("swarm stack is not healthy (cmd2 failed)"))
-                    if not "Running" in proc2.stdout.decode() :
+                    if "Running" not in proc2.stdout.decode():
                         all_healthy = False
                         break
                 if all_healthy :
@@ -121,16 +119,16 @@ class SwarmTest(Test) :
             return False
         return True
 
-    def _cleanup_test(self) :
-        try :
-            proc = run('docker stack rm "' + self._name + '"', shell=True)
+    def _cleanup_test(self):
+        try:
+            proc = run(f'docker stack rm "{self._name}"', shell=True)
             if proc.returncode != 0 :
                 raise(Exception("docker stack rm failed"))
             proc = run('docker config ls --format "{{ .ID }}"', shell=True, capture_output=True)
             if proc.returncode != 0 :
                 raise(Exception("docker config ls failed"))
-            for config in proc.stdout.decode().splitlines() :
-                proc = run('docker config rm "' + config + '"', shell=True)
+            for config in proc.stdout.decode().splitlines():
+                proc = run(f'docker config rm "{config}"', shell=True)
                 if proc.returncode != 0 :
                     raise(Exception("docker config rm failed"))
             proc = run("docker service create --mode global --mount type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock --restart-condition none --name pruner -d docker docker volume prune -f", shell=True)
@@ -146,9 +144,9 @@ class SwarmTest(Test) :
             return False
         return True
 
-    def _debug_fail(self) :
+    def _debug_fail(self):
         run("docker service logs bunkerweb_mybunker", shell=True)
         run("docker service logs bunkerweb_myautoconf", shell=True)
         proc = run('docker stack services --format "{{ .Name }}" "' + self._name + '"', shell=True, capture_output=True)
-        for service in proc.stdout.decode().splitlines() :
-            run('docker service logs "' + service + '"', shell=True)
+        for service in proc.stdout.decode().splitlines():
+            run(f'docker service logs "{service}"', shell=True)

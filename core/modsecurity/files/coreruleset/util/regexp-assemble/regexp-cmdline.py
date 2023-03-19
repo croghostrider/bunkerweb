@@ -49,8 +49,8 @@ evasions = {
 }
 
 # Parse arguments
-if len(sys.argv) <= 1 or not sys.argv[1] in evasions:
-    print(sys.argv[0] + ' unix|windows [infile]')
+if len(sys.argv) <= 1 or sys.argv[1] not in evasions:
+    print(f'{sys.argv[0]} unix|windows [infile]')
     sys.exit(1)
 
 evasion = evasions[sys.argv[1]]

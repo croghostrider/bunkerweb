@@ -86,11 +86,11 @@ app.wsgi_app = ReverseProxied(app.wsgi_app)
 # Set variables and instantiate objects
 vars = get_variables()
 
-if not vars["FLASK_ENV"] == "development" and vars["ADMIN_PASSWORD"] == "changeme":
+if vars["FLASK_ENV"] != "development" and vars["ADMIN_PASSWORD"] == "changeme":
     logger.error("Please change the default admin password.")
     sys_exit(1)
 
-if not vars["FLASK_ENV"] == "development" and (
+if vars["FLASK_ENV"] != "development" and (
     vars["ABSOLUTE_URI"].endswith("/changeme/")
     or vars["ABSOLUTE_URI"].endswith("/changeme")
 ):
@@ -174,7 +174,13 @@ app.jinja_env.globals.update(check_settings=check_settings)
 
 def manage_bunkerweb(method: str, operation: str = "reloads", *args):
     # Do the operation
-    if method == "services":
+    if method == "global_config":
+        operation = app.config["CONFIG"].edit_global_conf(args[0])
+        app.config["TO_FLASH"].append({"content": operation, "type": "success"})
+    elif method == "plugins":
+        app.config["CONFIG"].reload_config()
+
+    elif method == "services":
         if operation == "new":
             operation, error = app.config["CONFIG"].new_service(args[0])
         elif operation == "edit":
@@ -186,12 +192,6 @@ def manage_bunkerweb(method: str, operation: str = "reloads", *args):
             app.config["TO_FLASH"].append({"content": operation, "type": "error"})
         else:
             app.config["TO_FLASH"].append({"content": operation, "type": "success"})
-    if method == "global_config":
-        operation = app.config["CONFIG"].edit_global_conf(args[0])
-        app.config["TO_FLASH"].append({"content": operation, "type": "success"})
-    elif method == "plugins":
-        app.config["CONFIG"].reload_config()
-
     if operation == "reload":
         operation = app.config["INSTANCES"].reload_instance(args[0])
     elif operation == "start":
@@ -273,11 +273,7 @@ def home():
     r = get(
         "https://raw.githubusercontent.com/bunkerity/bunkerweb/master/VERSION",
     )
-    remote_version = None
-
-    if r.status_code == 200:
-        remote_version = r.text.strip()
-
+    remote_version = r.text.strip() if r.status_code == 200 else None
     with open("/opt/bunkerweb/VERSION", "r") as f:
         version = f.read().strip()
 
@@ -292,31 +288,28 @@ def home():
     formatted_posts = None
     if r.status_code == 200:
         posts = r.json()
-        formatted_posts = []
-
-        for post in posts[:5]:
-            formatted_posts.append(
-                {
-                    "link": post["link"],
-                    "title": post["title"]["rendered"],
-                    "description": BeautifulSoup(
-                        post["content"]["rendered"][
-                            post["content"]["rendered"].index("<em>")
-                            + 4 : post["content"]["rendered"].index("</em>")
-                        ],
-                        features="html.parser",
-                    ).get_text()[:256]
-                    + ("..." if len(post["content"]["rendered"]) > 256 else ""),
-                    "date": dateutil_parse(post["date"]).strftime("%B %d, %Y"),
-                    "image_url": post["yoast_head_json"]["og_image"][0]["url"].replace(
-                        "wwwdev", "www"
-                    ),
-                    "reading_time": post["yoast_head_json"]["twitter_misc"][
-                        "Est. reading time"
+        formatted_posts = [
+            {
+                "link": post["link"],
+                "title": post["title"]["rendered"],
+                "description": BeautifulSoup(
+                    post["content"]["rendered"][
+                        post["content"]["rendered"].index("<em>")
+                        + 4 : post["content"]["rendered"].index("</em>")
                     ],
-                }
-            )
-
+                    features="html.parser",
+                ).get_text()[:256]
+                + ("..." if len(post["content"]["rendered"]) > 256 else ""),
+                "date": dateutil_parse(post["date"]).strftime("%B %d, %Y"),
+                "image_url": post["yoast_head_json"]["og_image"][0][
+                    "url"
+                ].replace("wwwdev", "www"),
+                "reading_time": post["yoast_head_json"]["twitter_misc"][
+                    "Est. reading time"
+                ],
+            }
+            for post in posts[:5]
+        ]
     instances_number = len(app.config["INSTANCES"].get_instances())
     services_number = len(app.config["CONFIG"].get_services())
 
@@ -337,7 +330,9 @@ def instances():
     # Manage instances
     if request.method == "POST":
         # Check operation
-        if not "operation" in request.form or not request.form["operation"] in [
+        if "operation" not in request.form or request.form[
+            "operation"
+        ] not in [
             "reload",
             "start",
             "stop",
@@ -347,7 +342,7 @@ def instances():
             return redirect(url_for("loading", next=url_for("instances")))
 
         # Check that all fields are present
-        if not "INSTANCE_ID" in request.form:
+        if "INSTANCE_ID" not in request.form:
             flash("Missing INSTANCE_ID parameter.", "error")
             return redirect(url_for("loading", next=url_for("instances")))
 
@@ -382,7 +377,9 @@ def services():
     if request.method == "POST":
 
         # Check operation
-        if not "operation" in request.form or not request.form["operation"] in [
+        if "operation" not in request.form or request.form[
+            "operation"
+        ] not in [
             "new",
             "edit",
             "delete",
@@ -395,7 +392,7 @@ def services():
         del variables["csrf_token"]
 
         if (
-            not "OLD_SERVER_NAME" in request.form
+            "OLD_SERVER_NAME" not in request.form
             and request.form["operation"] == "edit"
         ):
             flash("Missing OLD_SERVER_NAME parameter.", "error")
@@ -429,22 +426,17 @@ def services():
                 )
                 return redirect(url_for("loading", next=url_for("services")))
 
-            error = app.config["CONFIG"].check_variables(variables)
-
-            if error:
+            if error := app.config["CONFIG"].check_variables(variables):
                 return redirect(url_for("loading", next=url_for("services")))
 
-        # Delete
         elif request.form["operation"] == "delete":
-            if not "SERVER_NAME" in request.form:
+            if "SERVER_NAME" not in request.form:
                 flash("Missing SERVER_NAME parameter.", "error")
                 return redirect(url_for("loading", next=url_for("services")))
 
-            error = app.config["CONFIG"].check_variables(
+            if error := app.config["CONFIG"].check_variables(
                 {"SERVER_NAME": request.form["SERVER_NAME"]}
-            )
-
-            if error:
+            ):
                 return redirect(url_for("loading", next=url_for("services")))
 
         error = 0
@@ -504,13 +496,11 @@ def global_config():
 
         if not variables:
             flash(
-                f"The global configuration was not edited because no values were changed."
+                "The global configuration was not edited because no values were changed."
             )
             return redirect(url_for("loading", next=url_for("global_config")))
 
-        error = app.config["CONFIG"].check_variables(variables, True)
-
-        if error:
+        if error := app.config["CONFIG"].check_variables(variables, True):
             return redirect(url_for("loading", next=url_for("global_config")))
 
         # Reload instances
@@ -541,86 +531,81 @@ def global_config():
 @app.route("/configs", methods=["GET", "POST"])
 @login_required
 def configs():
-    if request.method == "POST":
-        operation = ""
+    if request.method != "POST":
+        return render_template(
+            "configs.html", folders=[path_to_dict("/opt/bunkerweb/configs")]
+        )
+    operation = ""
 
         # Check operation
-        if not "operation" in request.form or not request.form["operation"] in [
-            "new",
-            "edit",
-            "delete",
-        ]:
-            flash("Missing operation parameter on /configs.", "error")
-            return redirect(url_for("loading", next=url_for("configs")))
-
-        # Check variables
-        variables = deepcopy(request.form.to_dict())
-        del variables["csrf_token"]
-
-        operation = app.config["CONFIGFILES"].check_path(variables["path"])
-
-        if operation:
-            flash(operation, "error")
-            return redirect(url_for("loading", next=url_for("configs"))), 500
-
-        if request.form["operation"] in ("new", "edit"):
-            if not app.config["CONFIGFILES"].check_name(variables["name"]):
-                flash(
-                    f"Invalid {variables['type']} name. (Can only contain numbers, letters, underscores and hyphens (min 4 characters and max 32))",
-                    "error",
-                )
-                return redirect(url_for("loading", next=url_for("configs")))
-
-            if variables["type"] == "file":
-                variables["name"] = f"{variables['name']}.conf"
-                variables["content"] = BeautifulSoup(
-                    variables["content"], "html.parser"
-                ).get_text()
-
-            if request.form["operation"] == "new":
-                if variables["type"] == "folder":
-                    operation, error = app.config["CONFIGFILES"].create_folder(
-                        variables["path"], variables["name"]
-                    )
-                elif variables["type"] == "file":
-                    operation, error = app.config["CONFIGFILES"].create_file(
-                        variables["path"], variables["name"], variables["content"]
-                    )
-            elif request.form["operation"] == "edit":
-                if variables["type"] == "folder":
-                    operation, error = app.config["CONFIGFILES"].edit_folder(
-                        variables["path"], variables["name"]
-                    )
-                elif variables["type"] == "file":
-                    operation, error = app.config["CONFIGFILES"].edit_file(
-                        variables["path"], variables["name"], variables["content"]
-                    )
-
-            if error:
-                flash(operation, "error")
-                return redirect(url_for("loading", next=url_for("configs")))
-        else:
-            operation, error = app.config["CONFIGFILES"].delete_path(variables["path"])
-
-            if error:
-                flash(operation, "error")
-                return redirect(url_for("loading", next=url_for("configs")))
-
-        flash(operation)
-
-        # Reload instances
-        app.config["RELOADING"] = True
-        Thread(
-            target=manage_bunkerweb,
-            name="Reloading instances",
-            args=("configs",),
-        ).start()
-
+    if "operation" not in request.form or request.form["operation"] not in [
+        "new",
+        "edit",
+        "delete",
+    ]:
+        flash("Missing operation parameter on /configs.", "error")
         return redirect(url_for("loading", next=url_for("configs")))
 
-    return render_template(
-        "configs.html", folders=[path_to_dict("/opt/bunkerweb/configs")]
-    )
+    # Check variables
+    variables = deepcopy(request.form.to_dict())
+    del variables["csrf_token"]
+
+    operation = app.config["CONFIGFILES"].check_path(variables["path"])
+
+    if operation:
+        flash(operation, "error")
+        return redirect(url_for("loading", next=url_for("configs"))), 500
+
+    if request.form["operation"] in ("new", "edit"):
+        if not app.config["CONFIGFILES"].check_name(variables["name"]):
+            flash(
+                f"Invalid {variables['type']} name. (Can only contain numbers, letters, underscores and hyphens (min 4 characters and max 32))",
+                "error",
+            )
+            return redirect(url_for("loading", next=url_for("configs")))
+
+        if variables["type"] == "file":
+            variables["name"] = f"{variables['name']}.conf"
+            variables["content"] = BeautifulSoup(
+                variables["content"], "html.parser"
+            ).get_text()
+
+        if request.form["operation"] == "new":
+            if variables["type"] == "folder":
+                operation, error = app.config["CONFIGFILES"].create_folder(
+                    variables["path"], variables["name"]
+                )
+            elif variables["type"] == "file":
+                operation, error = app.config["CONFIGFILES"].create_file(
+                    variables["path"], variables["name"], variables["content"]
+                )
+        elif request.form["operation"] == "edit":
+            if variables["type"] == "folder":
+                operation, error = app.config["CONFIGFILES"].edit_folder(
+                    variables["path"], variables["name"]
+                )
+            elif variables["type"] == "file":
+                operation, error = app.config["CONFIGFILES"].edit_file(
+                    variables["path"], variables["name"], variables["content"]
+                )
+
+    else:
+        operation, error = app.config["CONFIGFILES"].delete_path(variables["path"])
+
+    if error:
+        flash(operation, "error")
+        return redirect(url_for("loading", next=url_for("configs")))
+    flash(operation)
+
+    # Reload instances
+    app.config["RELOADING"] = True
+    Thread(
+        target=manage_bunkerweb,
+        name="Reloading instances",
+        args=("configs",),
+    ).start()
+
+    return redirect(url_for("loading", next=url_for("configs")))
 
 
 @app.route("/plugins", methods=["GET", "POST"])
@@ -666,8 +651,8 @@ def plugins():
                     if file.endswith(".zip"):
                         try:
                             with zipfile.ZipFile(
-                                f"/opt/bunkerweb/tmp/ui/{file}"
-                            ) as zip_file:
+                                                            f"/opt/bunkerweb/tmp/ui/{file}"
+                                                        ) as zip_file:
                                 try:
                                     zip_file.getinfo("plugin.json")
                                     zip_file.extractall(
@@ -679,8 +664,9 @@ def plugins():
                                     ) as f:
                                         plugin_file = json_load(f)
 
-                                    if not all(
-                                        key in plugin_file.keys() for key in PLUGIN_KEYS
+                                    if any(
+                                        key not in plugin_file.keys()
+                                        for key in PLUGIN_KEYS
                                     ):
                                         raise ValueError
 
@@ -734,8 +720,9 @@ def plugins():
                                     ) as f:
                                         plugin_file = json_load(f)
 
-                                    if not all(
-                                        key in plugin_file.keys() for key in PLUGIN_KEYS
+                                    if any(
+                                        key not in plugin_file.keys()
+                                        for key in PLUGIN_KEYS
                                     ):
                                         raise ValueError
 
@@ -763,15 +750,15 @@ def plugins():
                         except zipfile.BadZipFile:
                             error = 1
                             flash(
-                                f"{file} is not a valid zip file. ({folder_name if folder_name else temp_folder_name})",
+                                f"{file} is not a valid zip file. ({folder_name or temp_folder_name})",
                                 "error",
                             )
                     else:
                         try:
                             with tarfile.open(
-                                f"/opt/bunkerweb/tmp/ui/{file}",
-                                errorlevel=2,
-                            ) as tar_file:
+                                                            f"/opt/bunkerweb/tmp/ui/{file}",
+                                                            errorlevel=2,
+                                                        ) as tar_file:
                                 try:
                                     tar_file.getmember("plugin.json")
                                     tar_file.extractall(
@@ -783,8 +770,9 @@ def plugins():
                                     ) as f:
                                         plugin_file = json_load(f)
 
-                                    if not all(
-                                        key in plugin_file.keys() for key in PLUGIN_KEYS
+                                    if any(
+                                        key not in plugin_file.keys()
+                                        for key in PLUGIN_KEYS
                                     ):
                                         raise ValueError
 
@@ -838,8 +826,9 @@ def plugins():
                                     ) as f:
                                         plugin_file = json_load(f)
 
-                                    if not all(
-                                        key in plugin_file.keys() for key in PLUGIN_KEYS
+                                    if any(
+                                        key not in plugin_file.keys()
+                                        for key in PLUGIN_KEYS
                                     ):
                                         raise ValueError
 
@@ -867,37 +856,37 @@ def plugins():
                         except tarfile.ReadError:
                             error = 1
                             flash(
-                                f"Couldn't read file {file} ({folder_name if folder_name else temp_folder_name})",
+                                f"Couldn't read file {file} ({folder_name or temp_folder_name})",
                                 "error",
                             )
                         except tarfile.CompressionError:
                             error = 1
                             flash(
-                                f"{file} is not a valid tar file ({folder_name if folder_name else temp_folder_name})",
+                                f"{file} is not a valid tar file ({folder_name or temp_folder_name})",
                                 "error",
                             )
                         except tarfile.HeaderError:
                             error = 1
                             flash(
-                                f"The file plugin.json in {file} is not valid ({folder_name if folder_name else temp_folder_name})",
+                                f"The file plugin.json in {file} is not valid ({folder_name or temp_folder_name})",
                                 "error",
                             )
                 except KeyError:
                     error = 1
                     flash(
-                        f"{file} is not a valid plugin (plugin.json file is missing) ({folder_name if folder_name else temp_folder_name})",
+                        f"{file} is not a valid plugin (plugin.json file is missing) ({folder_name or temp_folder_name})",
                         "error",
                     )
                 except JSONDecodeError as e:
                     error = 1
                     flash(
-                        f"The file plugin.json in {file} is not valid ({e.msg}: line {e.lineno} column {e.colno} (char {e.pos})) ({folder_name if folder_name else temp_folder_name})",
+                        f"The file plugin.json in {file} is not valid ({e.msg}: line {e.lineno} column {e.colno} (char {e.pos})) ({folder_name or temp_folder_name})",
                         "error",
                     )
                 except ValueError:
                     error = 1
                     flash(
-                        f"The file plugin.json is missing one or more of the following keys: <i>{', '.join(PLUGIN_KEYS)}</i> ({folder_name if folder_name else temp_folder_name})",
+                        f"The file plugin.json is missing one or more of the following keys: <i>{', '.join(PLUGIN_KEYS)}</i> ({folder_name or temp_folder_name})",
                         "error",
                     )
                 except FileExistsError:
@@ -978,18 +967,11 @@ def plugins():
     pages = []
     active = True
     for page in plugins_pages:
-        with open(
-            f"/opt/bunkerweb/"
-            + (
-                "plugins"
+        with open((("/opt/bunkerweb/" + ("plugins"
                 if os.path.exists(
                     f"/opt/bunkerweb/plugins/{page.lower()}/ui/template.html"
                 )
-                else "core"
-            )
-            + f"/{page.lower()}/ui/template.html",
-            "r",
-        ) as f:
+                else "core")) + f"/{page.lower()}/ui/template.html"), "r") as f:
             # Convert the file content to a jinja2 template
             template = Template(f.read())
 
@@ -1060,13 +1042,19 @@ def custom_plugin(plugin):
 
     # Add the custom plugin to sys.path
     sys_path.append(
-        f"/opt/bunkerweb/"
-        + (
-            "plugins"
-            if os.path.exists(f"/opt/bunkerweb/plugins/{plugin}/ui/actions.py")
-            else "core"
+        (
+            (
+                "/opt/bunkerweb/"
+                + (
+                    "plugins"
+                    if os.path.exists(
+                        f"/opt/bunkerweb/plugins/{plugin}/ui/actions.py"
+                    )
+                    else "core"
+                )
+            )
+            + f"/{plugin}/ui/"
         )
-        + f"/{plugin}/ui/"
     )
     try:
         # Try to import the custom plugin
@@ -1106,9 +1094,9 @@ def custom_plugin(plugin):
 
         if (
             request.method != "POST"
-            or error is True
+            or error
             or res is None
-            or isinstance(res, dict) is False
+            or not isinstance(res, dict)
         ):
             return redirect(url_for("loading", next=url_for("plugins")))
 
@@ -1134,9 +1122,9 @@ def cache_download():
     if not path:
         return redirect(url_for("loading", next=url_for("cache"))), 400
 
-    operation = app.config["CONFIGFILES"].check_path(path, "/opt/bunkerweb/cache/")
-
-    if operation:
+    if operation := app.config["CONFIGFILES"].check_path(
+        path, "/opt/bunkerweb/cache/"
+    ):
         flash(operation, "error")
         return redirect(url_for("loading", next=url_for("plugins"))), 500
 
@@ -1212,7 +1200,7 @@ def logs_linux():
                 logs_error.append("\n".join(temp_multiple_lines))
 
             temp_multiple_lines = [
-                f"{datetime.strptime(' '.join(line.strip().split(' ')[0:2]), '%Y/%m/%d %H:%M:%S').replace(tzinfo=timezone.utc).timestamp()} {line}"
+                f"{datetime.strptime(' '.join(line.strip().split(' ')[:2]), '%Y/%m/%d %H:%M:%S').replace(tzinfo=timezone.utc).timestamp()} {line}"
             ]
         elif (
             all(f"[{log_level}]" not in line_lower for log_level in NGINX_LOG_LEVELS)
@@ -1221,7 +1209,7 @@ def logs_linux():
             temp_multiple_lines.append(line)
         else:
             logs_error.append(
-                f"{datetime.strptime(' '.join(line.strip().split(' ')[0:2]), '%Y/%m/%d %H:%M:%S').replace(tzinfo=timezone.utc).timestamp()} {line}"
+                f"{datetime.strptime(' '.join(line.strip().split(' ')[:2]), '%Y/%m/%d %H:%M:%S').replace(tzinfo=timezone.utc).timestamp()} {line}"
             )
 
     if temp_multiple_lines:
@@ -1264,13 +1252,13 @@ def logs_linux():
                 }
             )
 
-            for splitted_log in splitted_one_line:
-                logs.append(
-                    {
-                        "content": splitted_log,
-                        "type": error_type,
-                    }
-                )
+            logs.extend(
+                {
+                    "content": splitted_log,
+                    "type": error_type,
+                }
+                for splitted_log in splitted_one_line
+            )
         else:
             logs.append(
                 {

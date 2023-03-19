@@ -13,7 +13,7 @@ from API import API
 
 status = 0
 
-try :
+try:
     # Get env vars
     is_kubernetes_mode = os.getenv("KUBERNETES_MODE") == "yes"
     is_swarm_mode = os.getenv("SWARM_MODE") == "yes"
@@ -23,7 +23,7 @@ try :
     logger.log("LETS-ENCRYPT", "ℹ️", "Certificates renewal for " + os.getenv("RENEWED_DOMAINS") + " successful")
 
     # Cluster case
-    if is_kubernetes_mode or is_swarm_mode or is_autoconf_mode :
+    if is_kubernetes_mode or is_swarm_mode or is_autoconf_mode:
 
         # Create tarball of /data/letsencrypt
         tgz = BytesIO()
@@ -32,35 +32,62 @@ try :
         tgz.seek(0, 0)
         files = {"archive.tar.gz": tgz}
 
-        for variable, value in os.environ.items() :
+        for variable, value in os.environ.items():
             if not variable.startswith("CLUSTER_INSTANCE_") :
                 continue
             endpoint = value.split(" ")[0]
             host = value.split(" ")[1]
             api = API(endpoint, host=host)
             sent, err, status, resp = api.request("POST", "/lets-encrypt/certificates", files=files)
-            if not sent :
+            if not sent:
                 status = 1
-                log("LETS-ENCRYPT", "❌", "Can't send API request to " + api.get_endpoint() + "/lets-encrypt/certificates : " + err)
-            else :
-                if status != 200 :
+                log(
+                    "LETS-ENCRYPT",
+                    "❌",
+                    f"Can't send API request to {api.get_endpoint()}/lets-encrypt/certificates : {err}",
+                )
+            elif status == 200:
+                log(
+                    "LETS-ENCRYPT",
+                    "ℹ️",
+                    f"Successfully sent API request to {api.get_endpoint()}/lets-encrypt/certificates",
+                )
+                sent, err, status, resp = api.request("POST", "/reload")
+                if not sent:
                     status = 1
-                    log("LETS-ENCRYPT", "❌", "Error while sending API request to " + api.get_endpoint() + "/lets-encrypt/certificates : status = " + resp["status"] + ", msg = " + resp["msg"])
-                else :
-                    log("LETS-ENCRYPT", "ℹ️", "Successfully sent API request to " + api.get_endpoint() + "/lets-encrypt/certificates")
-                    sent, err, status, resp = api.request("POST", "/reload")
-                    if not sent :
-                        status = 1
-                        log("LETS-ENCRYPT", "❌", "Can't send API request to " + api.get_endpoint() + "/reload : " + err)
-                    else :
-                        if status != 200 :
-                            status = 1
-                            log("LETS-ENCRYPT", "❌", "Error while sending API request to " + api.get_endpoint() + "/reload : status = " + resp["status"] + ", msg = " + resp["msg"])
-                        else :
-                            log("LETS-ENCRYPT", "ℹ️", "Successfully sent API request to " + api.get_endpoint() + "/reload")
+                    log(
+                        "LETS-ENCRYPT",
+                        "❌",
+                        f"Can't send API request to {api.get_endpoint()}/reload : {err}",
+                    )
+                elif status == 200:
+                    log(
+                        "LETS-ENCRYPT",
+                        "ℹ️",
+                        f"Successfully sent API request to {api.get_endpoint()}/reload",
+                    )
 
-    # Docker or Linux case
-    else :
+                else:
+                    status = 1
+                    log(
+                        "LETS-ENCRYPT",
+                        "❌",
+                        f"Error while sending API request to {api.get_endpoint()}/reload : status = "
+                        + resp["status"]
+                        + ", msg = "
+                        + resp["msg"],
+                    )
+            else:
+                status = 1
+                log(
+                    "LETS-ENCRYPT",
+                    "❌",
+                    f"Error while sending API request to {api.get_endpoint()}/lets-encrypt/certificates : status = "
+                    + resp["status"]
+                    + ", msg = "
+                    + resp["msg"],
+                )
+    else:
         cmd = "/usr/sbin/nginx -s reload"
         proc = subprocess.run(cmd.split(" "), stdin=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         if proc.returncode != 0 :

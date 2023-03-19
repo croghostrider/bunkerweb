@@ -26,11 +26,8 @@ function lookup($state, $stype, $keyword) {
 }
 """)
 
-    words = {}
     keywords = obj['keywords']
-    for k,v in keywords.items():
-        words[str(k)] = str(v)
-
+    words = {str(k): str(v) for k, v in keywords.items()}
     print('$words = array(')
     for k in sorted(words.keys()):
         print("'{0}' => '{1}',".format(k, words[k]))

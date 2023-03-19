@@ -7,8 +7,7 @@ It expects 403's to be returned for a rule firing
 
 def read_useragents(filename):
     f = open(filename,'r')
-    useragents = [agent.strip() for agent in f.readlines()]
-    return useragents
+    return [agent.strip() for agent in f.readlines()]
 
 def run_requests(useragent_list):
     status_not_403 = 0

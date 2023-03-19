@@ -25,9 +25,9 @@ def handle_stop(signum, frame) :
 signal.signal(signal.SIGINT, handle_stop)
 signal.signal(signal.SIGTERM, handle_stop)
 
-def handle_reload(env) :
+def handle_reload(env):
     global run, scheduler, reloading
-    try :
+    try:
         if scheduler is not None and run :
             if scheduler.reload(dotenv_values(env)) :
                 log("SCHEDULER", "ℹ️", "Reload successful")
@@ -35,8 +35,12 @@ def handle_reload(env) :
                 log("SCHEDULER", "❌", "Reload failed")
         else :
             log("SCHEDULER", "⚠️", "Ignored reload operation because scheduler is not running ...")
-    except :
-        log("SCHEDULER", "❌", "Exception while reloading scheduler : " + traceback.format_exc())
+    except:
+        log(
+            "SCHEDULER",
+            "❌",
+            f"Exception while reloading scheduler : {traceback.format_exc()}",
+        )
 
 def handle_reload_bw(signum, frame) :
     handle_reload("/etc/nginx/variables.env")
@@ -50,9 +54,9 @@ def stop(status) :
     os.remove("/opt/bunkerweb/tmp/scheduler.pid")
     os._exit(status)
 
-if __name__ == "__main__" :
+if __name__ == "__main__":
 
-    try :
+    try:
 
         # Don't execute if pid file exists
         if os.path.isfile("/opt/bunkerweb/tmp/scheduler.pid") :
@@ -77,23 +81,25 @@ if __name__ == "__main__" :
 
         # Only run jobs once
         log("SCHEDULER", "ℹ️", "Executing job scheduler ...")
-        if args.run :
-            ret = scheduler.run_once()
-            if not ret :
-                log("SCHEDULER", "❌", "At least one job in run_once() failed")
-                stop(1)
-            else :
+        if args.run:
+            if ret := scheduler.run_once():
                 log("SCHEDULER", "ℹ️", "All jobs in run_once() were successful")
 
-        # Or infinite schedule
-        else :
+            else:
+                log("SCHEDULER", "❌", "At least one job in run_once() failed")
+                stop(1)
+        else:
             scheduler.setup()
             while run :
                 scheduler.run_pending()
                 time.sleep(1)
 
-    except :
-        log("SCHEDULER", "❌", "Exception while executing scheduler : " + traceback.format_exc())
+    except:
+        log(
+            "SCHEDULER",
+            "❌",
+            f"Exception while executing scheduler : {traceback.format_exc()}",
+        )
         stop(1)
 
     log("SCHEDULER", "ℹ️", "Job scheduler stopped")

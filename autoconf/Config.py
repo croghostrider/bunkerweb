@@ -30,13 +30,13 @@ class Config(ApiCaller, ConfigCaller) :
         self.__schedule = False
         self.__schedule_lock = Lock()
 
-    def __get_full_env(self) :
+    def __get_full_env(self):
         env_instances = {}
         for instance in self.__instances :
             for variable, value in instance["env"].items() :
                 env_instances[variable] = value
         env_services = {}
-        if not "SERVER_NAME" in env_instances :
+        if "SERVER_NAME" not in env_instances:
             env_instances["SERVER_NAME"] = ""
         for service in self.__services :
             for variable, value in service.items() :
@@ -55,16 +55,14 @@ class Config(ApiCaller, ConfigCaller) :
             schedule = self.__schedule
             self.__schedule_lock.release()
 
-    def update_needed(self, instances, services, configs=None) :
+    def update_needed(self, instances, services, configs=None):
         if instances != self.__instances :
             return True
         if services != self.__services :
             return True
-        if not configs is None and configs != self.__configs :
-            return True
-        return False
+        return configs is not None and configs != self.__configs
 
-    def __get_config(self) :
+    def __get_config(self):
         config = {}
         # extract instances variables
         for instance in self.__instances :
@@ -72,12 +70,12 @@ class Config(ApiCaller, ConfigCaller) :
                 config[variable] = value
         # extract services variables
         server_names = []
-        for service in self.__services :
+        for service in self.__services:
             first_server = service["SERVER_NAME"].split(" ")[0]
-            if not first_server in server_names :
+            if first_server not in server_names:
                 server_names.append(first_server)
-            for variable, value in service.items() :
-                config[first_server + "_" + variable] = value
+            for variable, value in service.items():
+                config[f"{first_server}_{variable}"] = value
         config["SERVER_NAME"] = " ".join(server_names)
         return config
 
@@ -91,59 +89,59 @@ class Config(ApiCaller, ConfigCaller) :
             apis.append(API(endpoint, host=host))
         return apis
 
-    def __write_configs(self) :
+    def __write_configs(self):
         ret = True
-        for config_type in self.__configs :
-            for file, data in self.__configs[config_type].items() :
-                path = "/data/configs/" + config_type + "/" + file
+        for config_type in self.__configs:
+            for file, data in self.__configs[config_type].items():
+                path = f"/data/configs/{config_type}/{file}"
                 if not path.endswith(".conf") :
                     path += ".conf"
                 makedirs(dirname(path), exist_ok=True)
-                try :
+                try:
                     mode = "w"
                     if type(data) is bytes :
                         mode = "wb"
                     with open(path, mode) as f :
                         f.write(data)
-                except :
+                except:
                     print(format_exc())
-                    log("CONFIG", "❌", "Can't save file " + path)
+                    log("CONFIG", "❌", f"Can't save file {path}")
                     ret = False
         return ret
 
-    def __remove_configs(self) :
+    def __remove_configs(self):
         ret = True
-        for config_type in self.__configs :
-            for file, data in self.__configs[config_type].items() :
-                path = "/data/configs/" + config_type + "/" + file
+        for config_type in self.__configs:
+            for file, data in self.__configs[config_type].items():
+                path = f"/data/configs/{config_type}/{file}"
                 if not path.endswith(".conf") :
                     path += ".conf"
-                try :
+                try:
                     remove(path)
-                except :
+                except:
                     print(format_exc())
-                    log("CONFIG", "❌", "Can't remove file " + path)
+                    log("CONFIG", "❌", f"Can't remove file {path}")
                     ret = False
         check_empty_dirs = []
-        for type in ["server-http", "modsec", "modsec-crs"] :
-            check_empty_dirs.extend(glob("/data/configs/" + type + "/*"))
-        for check_empty_dir in check_empty_dirs :
-            if isdir(check_empty_dir) and len(listdir(check_empty_dir)) == 0 :
-                try :
+        for type in ["server-http", "modsec", "modsec-crs"]:
+            check_empty_dirs.extend(glob(f"/data/configs/{type}/*"))
+        for check_empty_dir in check_empty_dirs:
+            if isdir(check_empty_dir) and len(listdir(check_empty_dir)) == 0:
+                try:
                     rmtree(check_empty_dir)
-                except :
+                except:
                     print(format_exc())
-                    log("CONFIG", "❌", "Can't remove directory " + check_empty_dir)
+                    log("CONFIG", "❌", f"Can't remove directory {check_empty_dir}")
                     ret = False
         return ret
 
-    def apply(self, instances, services, configs=None) :
+    def apply(self, instances, services, configs=None):
 
         success = True
 
         # stop scheduler just in case caller didn't do it
         self.stop_scheduler()
-        
+
         # remove old autoconf configs if it exists
         if self.__configs:
             ret = self.__remove_configs()
@@ -168,26 +166,23 @@ class Config(ApiCaller, ConfigCaller) :
         # get env
         env = self.__get_full_env()
 
-        # run jobs once
-        i = 1
-        for instance in self.__instances :
+        for i, instance in enumerate(self.__instances, start=1):
             endpoint = "http://" + instance["hostname"] + ":5000"
             host = "bwapi"
             if "API_SERVER_NAME" in instance["env"] :
                 host = instance["env"]["API_SERVER_NAME"]
-            env["CLUSTER_INSTANCE_" + str(i)] = endpoint + " " + host
-            i += 1
+            env[f"CLUSTER_INSTANCE_{str(i)}"] = f"{endpoint} {host}"
         if self.__scheduler is None :
             self.__scheduler = JobScheduler(env=env, lock=self.__lock, apis=self._get_apis())
         ret = self.__scheduler.reload(env, apis=self._get_apis())
         if not ret :
             success = False
             log("CONFIG", "❌", "scheduler.reload() failed, configuration will not work as expected...")
-        
+
         # write config to /tmp/variables.env
-        with open("/tmp/variables.env", "w") as f :
-            for variable, value in self.__config.items() :
-                f.write(variable + "=" + value + "\n")
+        with open("/tmp/variables.env", "w") as f:
+            for variable, value in self.__config.items():
+                f.write(f"{variable}={value}" + "\n")
 
         # run the generator
         cmd = "python /opt/bunkerweb/gen/main.py --settings /opt/bunkerweb/settings.json --templates /opt/bunkerweb/confs --output /etc/nginx --variables /tmp/variables.env"
@@ -210,7 +205,7 @@ class Config(ApiCaller, ConfigCaller) :
         ret = self._send_files("/data", "/data")
         if not ret :
             success = False
-            log("CONFIG", "❌", "sending custom configs failed, configuration will not work as expected...")   
+            log("CONFIG", "❌", "sending custom configs failed, configuration will not work as expected...")
         ret = self._send_to_apis("POST", "/reload")
         if not ret :
             success = False

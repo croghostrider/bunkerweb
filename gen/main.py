@@ -11,9 +11,9 @@ from logger import log
 from Configurator import Configurator
 from Templator import Templator
 
-if __name__ == "__main__" :
+if __name__ == "__main__":
 
-    try :
+    try:
 
         # Parse arguments
         parser = argparse.ArgumentParser(description="BunkerWeb config generator")
@@ -27,62 +27,68 @@ if __name__ == "__main__" :
         args = parser.parse_args()
 
         log("GENERATOR", "ℹ️", "Generator started ...")
-        log("GENERATOR", "ℹ️", "Settings : " + args.settings)
-        log("GENERATOR", "ℹ️", "Templates : " + args.templates)
-        log("GENERATOR", "ℹ️", "Core : " + args.core)
-        log("GENERATOR", "ℹ️", "Plugins : " + args.plugins)
-        log("GENERATOR", "ℹ️", "Output : " + args.output)
-        log("GENERATOR", "ℹ️", "Target : " + args.target)
-        log("GENERATOR", "ℹ️", "Variables : " + args.variables)
+        log("GENERATOR", "ℹ️", f"Settings : {args.settings}")
+        log("GENERATOR", "ℹ️", f"Templates : {args.templates}")
+        log("GENERATOR", "ℹ️", f"Core : {args.core}")
+        log("GENERATOR", "ℹ️", f"Plugins : {args.plugins}")
+        log("GENERATOR", "ℹ️", f"Output : {args.output}")
+        log("GENERATOR", "ℹ️", f"Target : {args.target}")
+        log("GENERATOR", "ℹ️", f"Variables : {args.variables}")
 
         # Check existences and permissions
         log("GENERATOR", "ℹ️", "Checking arguments ...")
         files = [args.settings, args.variables]
         paths_rx = [args.core, args.plugins, args.templates]
         paths_rwx = [args.output]
-        for file in files :
-            if not os.path.exists(file) :
-                log("GENERATOR", "❌", "Missing file : " + file)
+        for file in files:
+            if not os.path.exists(file):
+                log("GENERATOR", "❌", f"Missing file : {file}")
                 sys.exit(1)
-            if not os.access(file, os.R_OK) :
-                log("GENERATOR", "❌", "Can't read file : " + file)
+            if not os.access(file, os.R_OK):
+                log("GENERATOR", "❌", f"Can't read file : {file}")
                 sys.exit(1)
-        for path in paths_rx + paths_rwx :
-            if not os.path.isdir(path) :
-                log("GENERATOR", "❌", "Missing directory : " + path)
+        for path in paths_rx + paths_rwx:
+            if not os.path.isdir(path):
+                log("GENERATOR", "❌", f"Missing directory : {path}")
                 sys.exit(1)
-            if not os.access(path, os.R_OK | os.X_OK) :
-                log("GENERATOR", "❌", "Missing RX rights on directory : " + path)
+            if not os.access(path, os.R_OK | os.X_OK):
+                log("GENERATOR", "❌", f"Missing RX rights on directory : {path}")
                 sys.exit(1)
-        for path in paths_rwx :
-            if not os.access(path, os.W_OK) :
-                log("GENERATOR", "❌", "Missing W rights on directory : " + path)
+        for path in paths_rwx:
+            if not os.access(path, os.W_OK):
+                log("GENERATOR", "❌", f"Missing W rights on directory : {path}")
                 sys.exit(1)
 
         # Check core plugins orders
         log("GENERATOR", "ℹ️", "Checking core plugins orders ...")
         core_plugins = {}
-        files = glob.glob(args.core + "/*/plugin.json")
-        for file in files :
-            try :
+        files = glob.glob(f"{args.core}/*/plugin.json")
+        for file in files:
+            try:
                 with open(file) as f :
                     core_plugin = json.loads(f.read())
-                    
+
                     if core_plugin["order"] not in core_plugins :
                         core_plugins[core_plugin["order"]] = []
-                    
+
                     core_plugins[core_plugin["order"]].append({"id": core_plugin["id"], "settings": core_plugin["settings"]})
-            except :
-                log("GENERATOR", "❌", "Exception while loading JSON from " + file + " :")
+            except:
+                log("GENERATOR", "❌", f"Exception while loading JSON from {file} :")
                 print(traceback.format_exc())
 
         core_settings = {}
-        for order in core_plugins :
-            if len(core_plugins[order]) > 1 and order != 999 :
-                log("GENERATOR", "⚠️", "Multiple plugins have the same order (" + str(order) + ") : " + ", ".join(plugin["id"] for plugin in core_plugins[order]) + ". Therefor, the execution order will be random.")
-            
-            for plugin in core_plugins[order] :
-                core_settings.update(plugin["settings"])
+        for order, value in core_plugins.items():
+            if len(value) > 1 and order != 999:
+                log(
+                    "GENERATOR",
+                    "⚠️",
+                    f"Multiple plugins have the same order ({str(order)}) : "
+                    + ", ".join(plugin["id"] for plugin in core_plugins[order])
+                    + ". Therefor, the execution order will be random.",
+                )
+
+            for plugin in core_plugins[order]:
+                core_settings |= plugin["settings"]
 
         # Compute the config
         log("GENERATOR", "ℹ️", "Computing config ...")
@@ -91,7 +97,7 @@ if __name__ == "__main__" :
 
         # Remove old files
         log("GENERATOR", "ℹ️", "Removing old files ...")
-        files = glob.glob(args.output + "/*")
+        files = glob.glob(f"{args.output}/*")
         for file in files :
             if os.path.islink(file) :
                 os.unlink(file)
@@ -111,6 +117,10 @@ if __name__ == "__main__" :
 
     except SystemExit as e :
         sys.exit(e)
-    except :
-        log("GENERATOR", "❌", "Exception while executing generator : " + traceback.format_exc())
+    except:
+        log(
+            "GENERATOR",
+            "❌",
+            f"Exception while executing generator : {traceback.format_exc()}",
+        )
         sys.exit(1)

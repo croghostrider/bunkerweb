@@ -49,8 +49,6 @@ def toascii(data):
     https://github.com/nose-devs/nose/issues/692
     """
     return data
-    udata = data.decode('utf-8')
-    return udata.encode('ascii', 'xmlcharrefreplace')
 
 def readtestdata(filename):
     """
@@ -72,7 +70,7 @@ def readtestdata(filename):
             info[state] += line + '\n'
 
     # remove last newline from input
-    info['--INPUT--'] = info['--INPUT--'][0:-1]
+    info['--INPUT--'] = info['--INPUT--'][:-1]
 
     return (info['--TEST--'], info['--INPUT--'].strip(), info['--EXPECTED--'].strip())
 

@@ -41,7 +41,7 @@ for line in fileinput.input():
         continue
 
     if line[-1] == '\\':
-        sys.stdout.write(line[0:-1])
+        sys.stdout.write(line[:-1])
     else:
         sys.stdout.write(line)
         sys.stdout.write("\n")

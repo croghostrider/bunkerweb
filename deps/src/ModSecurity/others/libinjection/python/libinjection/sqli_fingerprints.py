@@ -1,4 +1,2 @@
 
-sqli_fingerprints = set([
-'1234'
-])
+sqli_fingerprints = {'1234'}

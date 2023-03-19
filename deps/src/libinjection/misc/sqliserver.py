@@ -88,10 +88,6 @@ def alltokens(val, flags):
     else:
         raise RuntimeException("bad quote context")
 
-    parse = {
-        'comment': commentstr,
-        'quote': contextstr
-    }
     args = []
     sqlstate = libinjection.sqli_state()
     libinjection.sqli_init(sqlstate, val, flags)
@@ -104,12 +100,13 @@ def alltokens(val, flags):
         args.append(print_token(sqlstate.current))
 
 
-    parse['tokens'] = args
-
+    parse = {'comment': commentstr, 'quote': contextstr, 'tokens': args}
     args = []
     fingerprint = libinjection.sqli_fingerprint(sqlstate, flags)
-    for i in range(len(sqlstate.fingerprint)):
-        args.append(print_token(libinjection.sqli_get_token(sqlstate,i)))
+    args.extend(
+        print_token(libinjection.sqli_get_token(sqlstate, i))
+        for i in range(len(sqlstate.fingerprint))
+    )
     parse['folds'] = args
     parse['sqli'] = bool(libinjection.sqli_blacklist(sqlstate) and libinjection.sqli_not_whitelist(sqlstate))
     parse['fingerprint'] = fingerprint
@@ -126,10 +123,10 @@ class PageHandler(tornado.web.RequestHandler):
         self.add_header('X-XSS-Protection', '0')
 
         self.render(
-            pagename + '.html',
-            title = pagename.replace('-',' '),
+            f'{pagename}.html',
+            title=pagename.replace('-', ' '),
             ssl_protocol=self.request.headers.get('X-SSL-Protocol', ''),
-            ssl_cipher=self.request.headers.get('X-SSL-Cipher', '')
+            ssl_cipher=self.request.headers.get('X-SSL-Cipher', ''),
         )
 
 class XssTestHandler(tornado.web.RequestHandler):
@@ -165,9 +162,9 @@ class DaysSinceHandler(tornado.web.RequestHandler):
         today       = datetime.date.today()
         daynum = (today - lastevasion).days
         if daynum < 10:
-            days = "00" + str(daynum)
+            days = f"00{str(daynum)}"
         elif daynum < 100:
-            days = "0" + str(daynum)
+            days = f"0{str(daynum)}"
         else:
             days = str(daynum)
 
@@ -190,14 +187,13 @@ class NullHandler(tornado.web.RequestHandler):
     def get_tokens(self):
         ids = self.request.arguments.get('id', [])
 
-        if len(ids) == 1:
-            formvalue = ids[0]
-        else:
-            formvalue = ''
-
+        formvalue = ids[0] if len(ids) == 1 else ''
         val = urllib.unquote(formvalue)
-        parsed = []
-        parsed.append(alltokens(val, libinjection.FLAG_QUOTE_NONE | libinjection.FLAG_SQL_ANSI))
+        parsed = [
+            alltokens(
+                val, libinjection.FLAG_QUOTE_NONE | libinjection.FLAG_SQL_ANSI
+            )
+        ]
         parsed.append(alltokens(val, libinjection.FLAG_QUOTE_NONE | libinjection.FLAG_SQL_MYSQL))
         parsed.append(alltokens(val, libinjection.FLAG_QUOTE_SINGLE | libinjection.FLAG_SQL_ANSI))
         parsed.append(alltokens(val, libinjection.FLAG_QUOTE_SINGLE | libinjection.FLAG_SQL_MYSQL))
@@ -223,11 +219,7 @@ class NullHandler(tornado.web.RequestHandler):
         #detectsqli = libinjection.detectsqli
 
         ids = self.request.arguments.get('id', [])
-        if len(ids) == 1:
-            formvalue = ids[0]
-        else:
-            formvalue = ''
-
+        formvalue = ids[0] if len(ids) == 1 else ''
         args = []
         extra = {}
         qssqli = False
@@ -239,8 +231,6 @@ class NullHandler(tornado.web.RequestHandler):
             if name == 'type':
                 continue
 
-            fps = []
-
             val = values[0]
             val = urllib.unquote(val)
             if len(val) == 0:
@@ -248,8 +238,7 @@ class NullHandler(tornado.web.RequestHandler):
             libinjection.sqli_init(sqlstate, val, 0)
             pat = libinjection.sqli_fingerprint(sqlstate, libinjection.FLAG_QUOTE_NONE | libinjection.FLAG_SQL_ANSI)
             issqli = bool(libinjection.sqli_blacklist(sqlstate) and libinjection.sqli_not_whitelist(sqlstate))
-            fps.append(['unquoted', 'ansi', issqli, pat])
-
+            fps = [['unquoted', 'ansi', issqli, pat]]
             pat = libinjection.sqli_fingerprint(sqlstate, libinjection.FLAG_QUOTE_NONE | libinjection.FLAG_SQL_MYSQL)
             issqli = bool(libinjection.sqli_blacklist(sqlstate) and libinjection.sqli_not_whitelist(sqlstate))
             fps.append(['unquoted', 'mysql', issqli, pat])

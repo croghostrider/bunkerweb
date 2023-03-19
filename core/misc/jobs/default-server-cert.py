@@ -9,17 +9,22 @@ import logger
 
 status = 0
 
-try :
+try:
 
     # Check if we need to generate a self-signed default cert for non-SNI "clients"
     need_default_cert = False
     if ((os.getenv("MULTISITE") == "no" and os.getenv("DISABLE_DEFAULT_SERVER") == "yes") and 
-        (os.getenv("USE_CUSTOM_HTTPS") == "yes" or os.getenv("AUTO_LETS_ENCRYPT") == "yes" or os.getenv("GENERATE_SELF_SIGNED_SSL") == "yes")) :
+        (os.getenv("USE_CUSTOM_HTTPS") == "yes" or os.getenv("AUTO_LETS_ENCRYPT") == "yes" or os.getenv("GENERATE_SELF_SIGNED_SSL") == "yes")):
         need_default_cert = True
-    elif os.getenv("MULTISITE") == "yes" :
-        for first_server in os.getenv("SERVER_NAME").split(" ") :
-            for check_var in ["USE_CUSTOM_HTTPS", "AUTO_LETS_ENCRYPT", "GENERATE_SELF_SIGNED_SSL"] :
-                if os.getenv(first_server + "_" + check_var, os.getenv(check_var)) == "yes" :
+    elif os.getenv("MULTISITE") == "yes":
+        for first_server in os.getenv("SERVER_NAME").split(" "):
+            for check_var in ["USE_CUSTOM_HTTPS", "AUTO_LETS_ENCRYPT", "GENERATE_SELF_SIGNED_SSL"]:
+                if (
+                    os.getenv(
+                        f"{first_server}_{check_var}", os.getenv(check_var)
+                    )
+                    == "yes"
+                ):
                     need_default_cert = True
                     break
             if need_default_cert :

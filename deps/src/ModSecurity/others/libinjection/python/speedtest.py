@@ -12,7 +12,7 @@ def lookup_c(state, style, keyword):
 
 def lookup_upcase(state, stype, keyword):
     if stype == libinjection.LOOKUP_FINGERPRINT:
-        return words.get('0' + keyword.upper(), '')
+        return words.get(f'0{keyword.upper()}', '')
     else:
         return words.get(keyword.upper(), '')
 

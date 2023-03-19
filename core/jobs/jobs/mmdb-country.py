@@ -10,7 +10,7 @@ import requests, datetime, gzip, maxminddb
 
 status = 0
 
-try :
+try:
 
     # Don't go further if the cache is fresh
     if jobs.is_cached_file("/opt/bunkerweb/cache/country.mmdb", "month") :
@@ -19,17 +19,17 @@ try :
 
     # Compute the mmdb URL
     today = datetime.date.today()
-    mmdb_url = "https://download.db-ip.com/free/dbip-country-lite-{}-{}.mmdb.gz".format(today.strftime("%Y"), today.strftime("%m"))
+    mmdb_url = f'https://download.db-ip.com/free/dbip-country-lite-{today.strftime("%Y")}-{today.strftime("%m")}.mmdb.gz'
 
     # Download the mmdb file
-    logger.log("JOBS", "ℹ️", "Downloading mmdb file from url " + mmdb_url + " ...")
+    logger.log("JOBS", "ℹ️", f"Downloading mmdb file from url {mmdb_url} ...")
     resp = requests.get(mmdb_url)
-    
+
     # Save it to temp
     logger.log("JOBS", "ℹ️", "Saving mmdb file to tmp ...")
     with open("/opt/bunkerweb/tmp/country.mmdb", "wb") as f :
         f.write(gzip.decompress(resp.content))
-    
+
     # Try to load it
     logger.log("JOBS", "ℹ️", "Checking if mmdb file is valid ...")
     with maxminddb.open_database("/opt/bunkerweb/tmp/country.mmdb") as reader :
@@ -45,12 +45,12 @@ try :
     # Move it to cache folder
     logger.log("JOBS", "ℹ️", "Moving mmdb file to cache ...")
     cached, err = jobs.cache_file("/opt/bunkerweb/tmp/country.mmdb", "/opt/bunkerweb/cache/country.mmdb", file_hash)
-    if not cached :
-        logger.log("JOBS", "❌", "Error while caching mmdb file : " + err)
+    if not cached:
+        logger.log("JOBS", "❌", f"Error while caching mmdb file : {err}")
         os._exit(2)
 
     # Success
-    logger.log("JOBS", "ℹ️", "Downloaded new mmdb from " + mmdb_url)
+    logger.log("JOBS", "ℹ️", f"Downloaded new mmdb from {mmdb_url}")
 
     status = 1
 

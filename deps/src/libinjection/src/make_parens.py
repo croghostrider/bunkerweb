@@ -16,20 +16,88 @@ class PermuteFingerprints(object):
     def __init__(self):
         """ initialization """
         self.fingerprints = set()
-        self.blacklist = set([
-            'E1n', 'sns', '1&n', 's1s', '1n1', '1o1', '1os', 'sn1',
-            'sonc', 'so1', 'n&n', 'son', 'nov', 'n&s', 'E1s', 'nos',
-            'nkn&n', '1sn', 'n&nkn', 's1n', 'n&nEn', 's&sn', '1os1o',
-            'sU', 'nU', 'n,(n)', 'n&n&n', 'Enkn', 'nk1;',
-            '1os1o', '1n1;', 's*1s', '1s1', 'nknEn', 'n&sn',
-            'so1', 'nkn;', 'n&n;', 'von', 'n&nc', 'sonkn',
-            'n)o1', 'Enn;', 'nBn', 'Ennc', 'n&En', 'nEnEn', 'Esn',
-            'n1s', 'n(1)s', 'En1', 'En(1)', 'n(1)n', 'n1v',
-            'n(1)1', 'n&EUE', 'n&EkU', 's&EUE', 's&EkU', 'v&EUE', 'v&EkU',
-            'n&nTn', 'nA', 'nos;n', 'UEn', 'so1no', '1)on', '1k(1)',
-            's)on', '1;TnE', 's&1s', 'n)c', 'svs', '1n(1)',
-            'so1s(', 'son1s', 'nf(1n', 'so1sf', 'son1s', 'nf(n)', 'En1c',
-            'n)on', "nok&n", "n;Tkn",
+        self.blacklist = {
+            'E1n',
+            'sns',
+            '1&n',
+            's1s',
+            '1n1',
+            '1o1',
+            '1os',
+            'sn1',
+            'sonc',
+            'n&n',
+            'son',
+            'nov',
+            'n&s',
+            'E1s',
+            'nos',
+            'nkn&n',
+            '1sn',
+            'n&nkn',
+            's1n',
+            'n&nEn',
+            's&sn',
+            'sU',
+            'nU',
+            'n,(n)',
+            'n&n&n',
+            'Enkn',
+            'nk1;',
+            '1os1o',
+            '1n1;',
+            's*1s',
+            '1s1',
+            'nknEn',
+            'n&sn',
+            'so1',
+            'nkn;',
+            'n&n;',
+            'von',
+            'n&nc',
+            'sonkn',
+            'n)o1',
+            'Enn;',
+            'nBn',
+            'Ennc',
+            'n&En',
+            'nEnEn',
+            'Esn',
+            'n1s',
+            'n(1)s',
+            'En1',
+            'En(1)',
+            'n(1)n',
+            'n1v',
+            'n(1)1',
+            'n&EUE',
+            'n&EkU',
+            's&EUE',
+            's&EkU',
+            'v&EUE',
+            'v&EkU',
+            'n&nTn',
+            'nA',
+            'nos;n',
+            'UEn',
+            'so1no',
+            '1)on',
+            '1k(1)',
+            's)on',
+            '1;TnE',
+            's&1s',
+            'n)c',
+            'svs',
+            '1n(1)',
+            'so1s(',
+            'nf(1n',
+            'so1sf',
+            'son1s',
+            'nf(n)',
+            'En1c',
+            'n)on',
+            "nok&n",
+            "n;Tkn",
             "nEnc",
             "nok&1",
             "nok&f",
@@ -39,10 +107,8 @@ class PermuteFingerprints(object):
             "nknc",
             "son1n",
             "n&nBn",
-            ])
-        self.whitelist = set([
-            'T(vv)', 'Tnvos', 'Tnv;', '1UEnn', '1;Tvk'
-            ])
+        }
+        self.whitelist = {'T(vv)', 'Tnvos', 'Tnv;', '1UEnn', '1;Tvk'}
 
     def aslist(self):
         """
@@ -55,7 +121,7 @@ class PermuteFingerprints(object):
         insert a new fingerprint, with possible variations
         """
         if len(fingerprint) > 5:
-            fingerprint = fingerprint[0:5]
+            fingerprint = fingerprint[:5]
         if self.validate(fingerprint):
             self.fingerprints.add(fingerprint)
 
@@ -123,7 +189,7 @@ class PermuteFingerprints(object):
         # 1;foo:goto foo
         # 1;n:k
         # the 'foo' can only be a 'n' type
-        if ':' in s and not 'n:' in s:
+        if ':' in s and 'n:' not in s:
             return False
 
         if '11' in s:
@@ -164,18 +230,10 @@ class PermuteFingerprints(object):
             return False
 
         if 'ns' in s:
-            if 'U' in s:
-                return True
-            if 'T' in s:
-                return True
-            return False
-
+            return True if 'U' in s else 'T' in s
         if 'sn' in s:
             # that is... Tsn is ok
-            if s.find('T') != -1 and s.find('T') < s.find('sn'):
-                return True
-            return False
-
+            return s.find('T') != -1 and s.find('T') < s.find('sn')
         # select foo (as) bar is only nn type i know
         if 'nn' in s and 'Enn' not in s and 'T' not in s:
             return False
@@ -301,14 +359,7 @@ class PermuteFingerprints(object):
 
         # need to investigate T(vv) to see
         # if it's correct
-        if 'vv' in s and s != 'T(vv)':
-            return False
-
-        # unlikely to be sqli but case FP
-        if s in ('so1n)', 'sonoE'):
-            return False
-
-        return True
+        return False if 'vv' in s and s != 'T(vv)' else s not in ('so1n)', 'sonoE')
 
     def permute(self, fp):
         """

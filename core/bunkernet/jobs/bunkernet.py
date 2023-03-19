@@ -1,14 +1,12 @@
 import requests, traceback
 from os import getenv
 
-def request(method, url, _id=None) :
+def request(method, url, _id=None):
     data = {
         "integration": get_integration(),
         "version": get_version()
     }
-    headers = {
-        "User-Agent": "BunkerWeb/" + get_version()
-    }
+    headers = {"User-Agent": f"BunkerWeb/{get_version()}"}
     if _id is not None :
         data["id"] = _id
     try :

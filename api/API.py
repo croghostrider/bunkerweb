@@ -12,11 +12,9 @@ class API :
     def get_host(self) :
         return self.__host
 
-    def request(self, method, url, data=None, files=None, timeout=(10, 30)) :
-        try :
-            headers = {}
-            headers["User-Agent"] = "bwapi"
-            headers["Host"] = self.__host
+    def request(self, method, url, data=None, files=None, timeout=(10, 30)):
+        try:
+            headers = {"User-Agent": "bwapi", "Host": self.__host}
             if type(data) is dict :
                 resp = request(method, self.__endpoint + url, json=data, timeout=timeout, headers=headers)
             elif type(data) is bytes :

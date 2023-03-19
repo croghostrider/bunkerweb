@@ -7,27 +7,27 @@ import urlparse
 
 logre = re.compile(r' /diagnostics\?([^ ]+) HTTP')
 
-notsqli = set([
-'1ov',
-'UEvEv',
-'v',
-'Uv',
-'Uv,',
-'UoEvE',
-'1v',
-'sov',
-'1nn',
-'UonnE',
-'no1',
-'Evk',
-'E1k',
-'E11k',
-'Ek',
-'Uv,Ev',
-'UvEvk',
-'UvEv,',
-'Uvon'
-])
+notsqli = {
+    '1ov',
+    'UEvEv',
+    'v',
+    'Uv',
+    'Uv,',
+    'UoEvE',
+    '1v',
+    'sov',
+    '1nn',
+    'UonnE',
+    'no1',
+    'Evk',
+    'E1k',
+    'E11k',
+    'Ek',
+    'Uv,Ev',
+    'UvEvk',
+    'UvEv,',
+    'Uvon',
+}
 
 def doline(logline):
     """
