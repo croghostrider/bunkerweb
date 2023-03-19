@@ -19,15 +19,18 @@ class DockerController(Controller, ConfigCaller) :
     def _get_controller_instances(self) :
         return self.__client.containers.list(filters={"label" : "bunkerweb.AUTOCONF"})
         
-    def _to_instances(self, controller_instance) :
-        instance = {}
-        instance["name"] = controller_instance.name
-        instance["hostname"] = controller_instance.name
-        instance["health"] = controller_instance.status == "running" and controller_instance.attrs["State"]["Health"]["Status"] == "healthy"
-        instance["env"] = {}
-        for env in controller_instance.attrs["Config"]["Env"] :
+    def _to_instances(self, controller_instance):
+        instance = {
+            "name": controller_instance.name,
+            "hostname": controller_instance.name,
+            "health": controller_instance.status == "running"
+            and controller_instance.attrs["State"]["Health"]["Status"]
+            == "healthy",
+            "env": {},
+        }
+        for env in controller_instance.attrs["Config"]["Env"]:
             variable = env.split("=")[0]
-            value = env.replace(variable + "=", "", 1)
+            value = env.replace(f"{variable}=", "", 1)
             if self._is_setting(variable) :
                 instance["env"][variable] = value
         return [instance]
@@ -46,34 +49,31 @@ class DockerController(Controller, ConfigCaller) :
             service[real_variable] = value
         return [service]
 
-    def _get_static_services(self) :
+    def _get_static_services(self):
         services = []
         variables = {}
-        for instance in self.__client.containers.list(filters={"label" : "bunkerweb.AUTOCONF"}) :
-            for env in instance.attrs["Config"]["Env"] :
+        for instance in self.__client.containers.list(filters={"label" : "bunkerweb.AUTOCONF"}):
+            for env in instance.attrs["Config"]["Env"]:
                 variable = env.split("=")[0]
-                value = env.replace(variable + "=", "", 1)
+                value = env.replace(f"{variable}=", "", 1)
                 variables[variable] = value
         server_names = []
         if "SERVER_NAME" in variables and variables["SERVER_NAME"] != "" :
             server_names = variables["SERVER_NAME"].split(" ")
-        for server_name in server_names :
-            service = {}
-            service["SERVER_NAME"] = server_name
-            for variable, value in variables.items() :
+        for server_name in server_names:
+            service = {"SERVER_NAME": server_name}
+            for variable, value in variables.items():
                 prefix = variable.split("_")[0]
-                real_variable = variable.replace(prefix + "_", "", 1)
+                real_variable = variable.replace(f"{prefix}_", "", 1)
                 if prefix == server_name and self._is_multisite_setting(real_variable) :
                     service[real_variable] = value
             services.append(service)
         return services
 
-    def get_configs(self) :
-        configs = {}
-        for config_type in self._supported_config_types :
-            configs[config_type] = {}
+    def get_configs(self):
+        configs = {config_type: {} for config_type in self._supported_config_types}
         # get site configs from labels
-        for container in self.__client.containers.list(filters={"label" : "bunkerweb.SERVER_NAME"}) :
+        for container in self.__client.containers.list(filters={"label" : "bunkerweb.SERVER_NAME"}):
             # extract server_name
             server_name = ""
             for variable, value in container.labels.items() :
@@ -86,7 +86,7 @@ class DockerController(Controller, ConfigCaller) :
             # extract configs
             if server_name == "" :
                 continue
-            for variable, value in container.labels.items() :
+            for variable, value in container.labels.items():
                 if not variable.startswith("bunkerweb.") :
                     continue
                 real_variable = variable.replace("bunkerweb.", "", 1)
@@ -95,7 +95,7 @@ class DockerController(Controller, ConfigCaller) :
                     continue
                 cfg_type = result.group(1).lower().replace("_", "-")
                 cfg_name = result.group(2)
-                configs[cfg_type][server_name + "/" + cfg_name] = value
+                configs[cfg_type][f"{server_name}/{cfg_name}"] = value
         return configs
 
     def apply_config(self) :
@@ -104,20 +104,19 @@ class DockerController(Controller, ConfigCaller) :
         self._config.start_scheduler()
         return ret
 
-    def process_events(self) :
-        for event in self.__client.events(decode=True, filters={"type": "container"}) :
-            try :
+    def process_events(self):
+        for _ in self.__client.events(decode=True, filters={"type": "container"}):
+            try:
                 self._instances = self.get_instances()
                 self._services = self.get_services()
                 self._configs = self.get_configs()
                 if not self._config.update_needed(self._instances, self._services, configs=self._configs) :
                     continue
                 log("DOCKER-CONTROLLER", "ℹ️", "Catched docker event, deploying new configuration ...")
-                ret = self.apply_config()
-                if not ret :
-                    log("DOCKER-CONTROLLER", "❌", "Error while deploying new configuration")
-                else :
+                if ret := self.apply_config():
                     log("DOCKER-CONTROLLER", "ℹ️", "Successfully deployed new configuration 🚀")
+                else:
+                    log("DOCKER-CONTROLLER", "❌", "Error while deploying new configuration")
             except :
                 log("DOCKER-CONTROLLER", "❌", "Exception while processing events :")
                 print(traceback.format_exc())

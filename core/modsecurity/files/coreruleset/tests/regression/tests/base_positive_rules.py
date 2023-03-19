@@ -59,14 +59,13 @@ if len(sys.argv)<2 and not start_options.demo:
     exit()
 
 for p in start_options.combined_payload.split('|'):
-    if p not in payloads:
-        # print('Checking %s' % (p))
-        if len(p)>0:
-            payloads.append(''.join([start_options.prefix, p, start_options.sufix]))
+    if p not in payloads and len(p) > 0:
+        payloads.append(''.join([start_options.prefix, p, start_options.sufix]))
 
-for p in start_options.list_payload:
-    payloads.append(''.join([start_options.prefix, p, start_options.sufix]))
-
+payloads.extend(
+    ''.join([start_options.prefix, p, start_options.sufix])
+    for p in start_options.list_payload
+)
 if start_options.output=='':
     o=sys.stdout
 else:
@@ -98,7 +97,7 @@ for item in payloads:
             o.write(l)
 
 if start_options.output != '':
-    print ('Generated %s rules to file %s' % (str(skeletontest), start_options.output))
+    print(f'Generated {str(skeletontest)} rules to file {start_options.output}')
     o.close()
 
 #print('\nGenerated %s tests' % (str(skeletontest)))

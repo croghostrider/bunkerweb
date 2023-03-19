@@ -9,14 +9,14 @@ import re
 
 
 def get_variables():
-    vars = {}
-    vars["DOCKER_HOST"] = "unix:///var/run/docker.sock"
-    vars["ABSOLUTE_URI"] = ""
-    vars["FLASK_SECRET"] = os.urandom(32)
-    vars["FLASK_ENV"] = "development"
-    vars["ADMIN_USERNAME"] = "admin"
-    vars["ADMIN_PASSWORD"] = "changeme"
-
+    vars = {
+        "DOCKER_HOST": "unix:///var/run/docker.sock",
+        "ABSOLUTE_URI": "",
+        "FLASK_SECRET": os.urandom(32),
+        "FLASK_ENV": "development",
+        "ADMIN_USERNAME": "admin",
+        "ADMIN_PASSWORD": "changeme",
+    }
     for k in vars:
         if k in os.environ:
             vars[k] = os.environ[k]
@@ -26,12 +26,12 @@ def get_variables():
 
 def log(event):
     with open("/var/log/nginx/ui.log", "a") as f:
-        f.write("[" + str(datetime.now().replace(microsecond=0)) + "] " + event + "\n")
+        f.write(f"[{str(datetime.now().replace(microsecond=0))}] {event}" + "\n")
 
 
 def env_to_summary_class(var, value):
     if type(var) is list and type(value) is list:
-        for i in range(0, len(var)):
+        for i in range(len(var)):
             if not isinstance(var[i], str):
                 continue
             if re.search(value[i], var[i]):
@@ -39,9 +39,7 @@ def env_to_summary_class(var, value):
         return "times text-danger"
     if not isinstance(var, str):
         return "times text-danger"
-    if re.search(value, var):
-        return "check text-success"
-    return "times text-danger"
+    return "check text-success" if re.search(value, var) else "times text-danger"
 
 
 def form_service_gen(
@@ -82,7 +80,7 @@ def form_service_gen(
                 "class": "form-control",
                 "id": _id,
                 "name": name,
-                "value": value if value else default,
+                "value": value or default,
                 "pattern": regex,
             },
         )
@@ -150,10 +148,7 @@ def form_service_gen(
 
     root.append(div)
 
-    if from_html:
-        return root.prettify()
-    else:
-        return root
+    return root.prettify() if from_html else root
 
 
 def form_service_gen_multiple(_id, label, params, root) -> Tag:
@@ -328,31 +323,27 @@ def path_to_dict(path, *, level: int = 0, is_cache: bool = False) -> dict:
     d = {"name": os.path.basename(path)}
 
     if os.path.isdir(path):
-        d.update(
-            {
-                "type": "folder",
-                "path": path,
-                "can_create_files": level > 0 and not is_cache,
-                "can_create_folders": level > 0 and not is_cache,
-                "can_edit": level > 1 and not is_cache,
-                "can_delete": level > 1 and not is_cache,
-                "children": [
-                    path_to_dict(
-                        os.path.join(path, x), level=level + 1, is_cache=is_cache
-                    )
-                    for x in sorted(os.listdir(path))
-                ],
-            }
-        )
+        d |= {
+            "type": "folder",
+            "path": path,
+            "can_create_files": level > 0 and not is_cache,
+            "can_create_folders": level > 0 and not is_cache,
+            "can_edit": level > 1 and not is_cache,
+            "can_delete": level > 1 and not is_cache,
+            "children": [
+                path_to_dict(
+                    os.path.join(path, x), level=level + 1, is_cache=is_cache
+                )
+                for x in sorted(os.listdir(path))
+            ],
+        }
     else:
-        d.update(
-            {
-                "type": "file",
-                "path": path,
-                "can_edit": level > 1 and not is_cache,
-                "can_download": is_cache,
-            }
-        )
+        d |= {
+            "type": "file",
+            "path": path,
+            "can_edit": level > 1 and not is_cache,
+            "can_download": is_cache,
+        }
 
         magic_file = magic.from_file(path, mime=True)
 
@@ -423,7 +414,9 @@ def gen_folders_tree_html(data: list) -> str:
                 root_div.append(
                     Tag(
                         name="span",
-                        attrs={"class": f"fa-solid fa-play fa-xs rotate-icon down"},
+                        attrs={
+                            "class": "fa-solid fa-play fa-xs rotate-icon down"
+                        },
                     )
                 )
 
@@ -499,7 +492,7 @@ def gen_folders_tree_html(data: list) -> str:
                                 name="span",
                                 attrs={"class": "pl-2"},
                             )
-                            span.append(option.split("_")[-1][0:-1].title())
+                            span.append(option.split("_")[-1][:-1].title())
                             button.append(span)
 
                             li.append(button)
@@ -556,7 +549,7 @@ def gen_folders_tree_html(data: list) -> str:
                 button = Tag(
                     name="button",
                     attrs={
-                        "class": f"btn btn-outline-primary",
+                        "class": "btn btn-outline-primary",
                         "data-bs-toggle": "modal",
                         "data-bs-target": "#modal-edit-new-file",
                         "data-path": _dict["path"],
@@ -574,7 +567,7 @@ def gen_folders_tree_html(data: list) -> str:
                 button = Tag(
                     name="button",
                     attrs={
-                        "class": f"btn btn-outline-danger",
+                        "class": "btn btn-outline-danger",
                         "data-bs-toggle": "modal",
                         "data-bs-target": "#modal-delete",
                         "data-path": _dict["path"],
@@ -588,7 +581,7 @@ def gen_folders_tree_html(data: list) -> str:
                 button = Tag(
                     name="button",
                     attrs={
-                        "class": f"btn btn-outline-secondary",
+                        "class": "btn btn-outline-secondary",
                         "data-bs-toggle": "modal",
                         "data-bs-target": "#modal-see-file",
                         "data-path": _dict["path"],
@@ -604,7 +597,7 @@ def gen_folders_tree_html(data: list) -> str:
                 button = Tag(
                     name="button",
                     attrs={
-                        "class": f"btn btn-outline-primary download-button",
+                        "class": "btn btn-outline-primary download-button",
                         "data-path": _dict["path"],
                     },
                 )

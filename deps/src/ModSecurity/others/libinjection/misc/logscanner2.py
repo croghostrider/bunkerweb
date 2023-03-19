@@ -33,7 +33,7 @@ def parse_date(datestr):
     elems = (
         datestr[7:11],
         months[datestr[3:6]],
-        datestr[0:2],
+        datestr[:2],
         datestr[12:14],
         datestr[15:17],
         datestr[18:20],
@@ -53,10 +53,10 @@ def parse_apache(line):
         (method, uri, protocol) = mo.group(5).split(' ', 2)
     except ValueError:
         (method, uri, protocol) = ('-', '-', '-')
-    data = {
+    return {
         'remote_addr': mo.group(1),
         'time_iso8601': time_iso,
-        'timestamp'   : timestamp,
+        'timestamp': timestamp,
         'request_protocol': protocol,
         'request_method': method,
         'request_uri': uri,
@@ -68,9 +68,8 @@ def parse_apache(line):
         'http_referrer': mo.group(8),
         'http_user_agent': mo.group(9),
         'ssl_cipher': '',
-        'ssl_protocol': ''
+        'ssl_protocol': '',
     }
-    return data
 
 # http://stackoverflow.com/questions/312443/how-do-you-split-a-list-into-evenly-sized-chunks-in-python
 def chunks(l, n):

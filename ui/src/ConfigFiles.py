@@ -40,9 +40,9 @@ class ConfigFiles:
             if len(dirs) > 1:
                 for x in range(nbr_children - 1):
                     if not os.path.exists(
-                        f"{root_path}{root_dir}/{'/'.join(dirs.split('/')[0:-x])}"
+                        f"{root_path}{root_dir}/{'/'.join(dirs.split('/')[:-x])}"
                     ):
-                        return f"{root_path}{root_dir}/{'/'.join(dirs.split('/')[0:-x])} doesn't exist"
+                        return f"{root_path}{root_dir}/{'/'.join(dirs.split('/')[:-x])} doesn't exist"
 
         return ""
 

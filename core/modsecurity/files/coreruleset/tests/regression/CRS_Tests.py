@@ -36,13 +36,11 @@ class FooLogChecker(logchecker.LogChecker):
             yield line[::-1]
 
     def get_logs(self):
-        pattern = re.compile(r'%s' % self.log_date_regex)
+        pattern = re.compile(f'{self.log_date_regex}')
         our_logs = []
         for lline in self.reverse_readline(self.log_location):
-            # Extract dates from each line
-            match = re.match(pattern, lline)
-            if match:
-                log_date = match.group(1)
+            if match := re.match(pattern, lline):
+                log_date = match[1]
                 log_date = datetime.datetime.strptime(
                     log_date, self.log_date_format)
                 # NGINX doesn't give us microsecond level by detail, round down.

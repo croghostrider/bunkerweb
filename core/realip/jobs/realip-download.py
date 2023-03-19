@@ -7,34 +7,34 @@ sys.path.append("/opt/bunkerweb/utils")
 
 import logger, jobs, requests, ipaddress
 
-def check_line(line) :
-    if "/" in line :
-        try :
+def check_line(line):
+    try:
+        if "/" in line:
             ipaddress.ip_network(line)
-            return True, line
-        except :
-            pass
-    else :
-        try :
+        else:
             ipaddress.ip_address(line)
-            return True, line
-        except :
-            pass
+        return True, line
+    except :
+        pass
     return False, ""
 
 status = 0
 
-try :
+try:
 
     # Check if at least a server has Blacklist activated
     blacklist_activated = False
     # Multisite case
-    if os.getenv("MULTISITE") == "yes" :
-        for first_server in os.getenv("SERVER_NAME").split(" ") :
-            if os.getenv(first_server + "_USE_REALIP", os.getenv("USE_REALIP")) == "yes" :
+    if os.getenv("MULTISITE") == "yes":
+        for first_server in os.getenv("SERVER_NAME").split(" "):
+            if (
+                os.getenv(
+                    f"{first_server}_USE_REALIP", os.getenv("USE_REALIP")
+                )
+                == "yes"
+            ):
                 blacklist_activated = True
                 break
-    # Singlesite case
     elif os.getenv("USE_REALIP") == "yes" :
         blacklist_activated = True
     if not blacklist_activated :
@@ -57,27 +57,25 @@ try :
 
     # Download and write data to temp file
     i = 0
-    f = open("/opt/bunkerweb/tmp/realip-combined.list", "w")
-    for url in urls :
-        try :
-            logger.log("REALIP", "ℹ️", "Downloading RealIP list from " + url + " ...")
-            resp = requests.get(url, stream=True)
-            if resp.status_code != 200 :
-                continue
-            for line in resp.iter_lines(decode_unicode=True) :
-                line = line.strip().split(" ")[0]
-                if line == "" or line.startswith("#") or line.startswith(";") :
+    with open("/opt/bunkerweb/tmp/realip-combined.list", "w") as f:
+        for url in urls:
+            try:
+                logger.log("REALIP", "ℹ️", f"Downloading RealIP list from {url} ...")
+                resp = requests.get(url, stream=True)
+                if resp.status_code != 200 :
                     continue
-                ok, data = check_line(line)
-                if ok :
-                    f.write(data + "\n")
-                    i += 1
-        except :
-            status = 2
-            logger.log("REALIP", "❌", "Exception while getting RealIP list from " + url + " :")
-            print(traceback.format_exc())
-    f.close()
-
+                for line in resp.iter_lines(decode_unicode=True) :
+                    line = line.strip().split(" ")[0]
+                    if line == "" or line.startswith("#") or line.startswith(";") :
+                        continue
+                    ok, data = check_line(line)
+                    if ok :
+                        f.write(data + "\n")
+                        i += 1
+            except:
+                status = 2
+                logger.log("REALIP", "❌", f"Exception while getting RealIP list from {url} :")
+                print(traceback.format_exc())
     # Check if file has changed
     file_hash = jobs.file_hash("/opt/bunkerweb/tmp/realip-combined.list")
     cache_hash = jobs.cache_hash("/opt/bunkerweb/cache/realip/combined.list")
@@ -87,11 +85,11 @@ try :
 
     # Put file in cache
     cached, err = jobs.cache_file("/opt/bunkerweb/tmp/realip-combined.list", "/opt/bunkerweb/cache/realip/combined.list", file_hash)
-    if not cached :
-        logger.log("REALIP", "❌", "Error while caching list : " + err)
+    if not cached:
+        logger.log("REALIP", "❌", f"Error while caching list : {err}")
         os._exit(2)
 
-    logger.log("REALIP", "ℹ️", "Downloaded " + str(i) + " trusted IP/net")
+    logger.log("REALIP", "ℹ️", f"Downloaded {str(i)} trusted IP/net")
 
     status = 1
 

@@ -11,7 +11,7 @@ SecAction "id:900005,phase:1,nolog,pass,ctl:ruleEngine=on,ctl:ruleRemoveById=910
 """
 def send_requests(input_data,subiters,result,index):
 	http_ua = http.HttpUA()
-	for i in range(0,subiters):
+	for i in range(subiters):
 		new_index = str(index)+str(i)
 		http_ua.send_request(input_data)
 		result[new_index] = http_ua.response_object.status

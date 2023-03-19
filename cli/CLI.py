@@ -32,15 +32,12 @@ class CLI(ApiCaller) :
         self.__integration = self.__detect_integration()
         super().__init__(self.__get_apis())
 
-    def __detect_integration(self) :
+    def __detect_integration(self):
         ret = "unknown"
         distrib = ""
-        if isfile("/etc/os-release") :
-            with open("/etc/os-release", "r") as f :
-                if "Alpine" in f.read() :
-                    distrib = "alpine"
-                else :
-                    distrib = "other"
+        if isfile("/etc/os-release"):
+            with open("/etc/os-release", "r") as f:
+                distrib = "alpine" if "Alpine" in f.read() else "other"
         # Docker case
         if distrib == "alpine" and isfile("/usr/sbin/nginx") :
             return "docker"
@@ -59,16 +56,16 @@ class CLI(ApiCaller) :
 
         raise Exception("can't detect integration")
 
-    def __get_apis(self) :
+    def __get_apis(self):
         # Docker case
-        if self.__integration == "docker" or self.__integration == "linux" :
+        if self.__integration in ["docker", "linux"]:
             return [API("http://127.0.0.1:" + self.__variables["API_HTTP_PORT"], host=self.__variables["API_SERVER_NAME"])]
 
         # Autoconf case
-        if self.__integration == "autoconf" :
+        if self.__integration == "autoconf":
             docker_client = DockerClient()
             apis = []
-            for container in self.__client.containers.list(filters={"label" : "bunkerweb.AUTOCONF"}) :
+            for container in self.__client.containers.list(filters={"label" : "bunkerweb.AUTOCONF"}):
                 port = "5000"
                 host = "bwapi"
                 for env in container.attrs["Config"]["Env"] :
@@ -76,14 +73,14 @@ class CLI(ApiCaller) :
                         port = env.split("=")[1]
                     elif env.startswith("API_SERVER_NAME=") :
                         host = env.split("=")[1]
-                apis.append(API("http://" + container.name + ":" + port, host=host))
+                apis.append(API(f"http://{container.name}:{port}", host=host))
             return apis
 
         # Swarm case
-        if self.__integration == "swarm" :
+        if self.__integration == "swarm":
             docker_client = DockerClient()
             apis = []
-            for service in self.__client.services.list(filters={"label" : "bunkerweb.AUTOCONF"}) :
+            for service in self.__client.services.list(filters={"label" : "bunkerweb.AUTOCONF"}):
                 port = "5000"
                 host = "bwapi"
                 for env in service.attrs["Spec"]["TaskTemplate"]["ContainerSpec"]["Env"] :
@@ -91,17 +88,27 @@ class CLI(ApiCaller) :
                         port = env.split("=")[1]
                     elif env.startswith("API_SERVER_NAME=") :
                         host = env.split("=")[1]
-                for task in service.tasks() :
-                    apis.append(API("http://" + service.name + "." + task["NodeID"] + "." + task["ID"] + ":" + port, host=host))
+                apis.extend(
+                    API(
+                        f"http://{service.name}."
+                        + task["NodeID"]
+                        + "."
+                        + task["ID"]
+                        + ":"
+                        + port,
+                        host=host,
+                    )
+                    for task in service.tasks()
+                )
             return apis
 
         # Kubernetes case
-        if self.__integration == "kubernetes" :
+        if self.__integration == "kubernetes":
             config.load_incluster_config()
             corev1 = client.CoreV1Api()
             apis = []
-            for pod in corev1.list_pod_for_all_namespaces(watch=False).items :
-                if pod.metadata.annotations != None and "bunkerweb.io/AUTOCONF" in pod.metadata.annotations and pod.status.pod_ip :
+            for pod in corev1.list_pod_for_all_namespaces(watch=False).items:
+                if pod.metadata.annotations != None and "bunkerweb.io/AUTOCONF" in pod.metadata.annotations and pod.status.pod_ip:
                     port = "5000"
                     host = "bwapi"
                     for env in pod.spec.containers[0].env :
@@ -109,17 +116,17 @@ class CLI(ApiCaller) :
                             port = env.value
                         elif env.name == "API_SERVER_NAME" :
                             host = env.value
-                    apis.append(API("http://" + pod.status.pod_ip + ":" + port, host=host))
+                    apis.append(API(f"http://{pod.status.pod_ip}:{port}", host=host))
             return apis
 
-    def unban(self, ip) :
-        if self._send_to_apis("POST", "/unban", data={"ip": ip}) :
-            return True, "IP " + ip + " has been unbanned"
+    def unban(self, ip):
+        if self._send_to_apis("POST", "/unban", data={"ip": ip}):
+            return True, f"IP {ip} has been unbanned"
         return False, "error"
 
-    def ban(self, ip, exp) :
-        if self._send_to_apis("POST", "/ban", data={"ip": ip, "exp": exp}) :
-            return True, "IP " + ip + " has been banned"
+    def ban(self, ip, exp):
+        if self._send_to_apis("POST", "/ban", data={"ip": ip, "exp": exp}):
+            return True, f"IP {ip} has been banned"
         return False, "error"
 
     def bans(self):

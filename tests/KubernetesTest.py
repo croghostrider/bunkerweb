@@ -19,8 +19,8 @@ class KubernetesTest(Test) :
             r"app3\.example\.com": getenv("TEST_DOMAIN3")
         }
 
-    def init() :
-        try :
+    def init():
+        try:
             if not Test.init() :
                 return False
             # proc = run("sudo chown -R root:root /tmp/bw-data", shell=True)
@@ -52,9 +52,9 @@ class KubernetesTest(Test) :
                 raise(Exception("kubectl apply bunkerweb failed (k8s stack)"))
             healthy = False
             i = 0
-            while i < 30 :
+            while i < 30:
                 proc = run('kubectl get pods | grep bunkerweb | grep -v Running', shell=True, capture_output=True)
-                if "" == proc.stdout.decode() :
+                if proc.stdout.decode() == "":
                     healthy = True
                     break
                 sleep(1)
@@ -81,25 +81,21 @@ class KubernetesTest(Test) :
             return False
         return ret
 
-    def _setup_test(self) :
-        try :
+    def _setup_test(self):
+        try:
             super()._setup_test()
-            test = "/tmp/tests/" + self._name
-            deploy = "/tmp/tests/" + self._name + "/kubernetes.yml"
-            example_data = "./examples/" + self._name + "/bw-data"
+            test = f"/tmp/tests/{self._name}"
+            deploy = f"/tmp/tests/{self._name}/kubernetes.yml"
+            example_data = f"./examples/{self._name}/bw-data"
             for ex_domain, test_domain in self._domains.items() :
                 Test.replace_in_files(test, ex_domain, test_domain)
                 Test.rename(test, ex_domain, test_domain)
             Test.replace_in_files(test, "example.com", getenv("ROOT_DOMAIN"))
-            setup = test + "/setup-kubernetes.sh"
+            setup = f"{test}/setup-kubernetes.sh"
             if isfile(setup) :
                 proc = run("./setup-kubernetes.sh", cwd=test, shell=True)
                 if proc.returncode != 0 :
                     raise(Exception("setup-kubernetes failed"))
-            # if isdir(example_data) :
-                # for cp_dir in listdir(example_data) :
-                    # if isdir(join(example_data, cp_dir)) :
-                        # copytree(join(example_data, cp_dir), join("/tmp/bw-data", cp_dir))
             proc = run("kubectl apply -f kubernetes.yml", shell=True, cwd=test)
             if proc.returncode != 0 :
                 raise(Exception("kubectl apply failed"))
@@ -109,10 +105,10 @@ class KubernetesTest(Test) :
             return False
         return True
 
-    def _cleanup_test(self) :
-        try :
-            test = "/tmp/tests/" + self._name
-            cleanup = test + "/cleanup-kubernetes.sh"
+    def _cleanup_test(self):
+        try:
+            test = f"/tmp/tests/{self._name}"
+            cleanup = f"{test}/cleanup-kubernetes.sh"
             if isfile(cleanup) :
                 proc = run("./cleanup-kubernetes.sh", cwd=test, shell=True)
                 if proc.returncode != 0 :
@@ -126,7 +122,7 @@ class KubernetesTest(Test) :
             return False
         return True
 
-    def _debug_fail(self) :
+    def _debug_fail(self):
         proc = run('kubectl get pods --no-headers -o custom-columns=":metadata.name"', shell=True, capture_output=True)
-        for pod in proc.stdout.decode().splitlines() :
-            run("kubectl logs " + pod, shell=True)
+        for pod in proc.stdout.decode().splitlines():
+            run(f"kubectl logs {pod}", shell=True)

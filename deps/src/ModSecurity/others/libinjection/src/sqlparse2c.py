@@ -54,44 +54,42 @@ static size_t parse_bword(sfilter * sf);
     # Mapping of character to function
     #
     fnmap = {
-        'CHAR_WORD' : 'parse_word',
-        'CHAR_WHITE': 'parse_white',
-        'CHAR_OP1'  : 'parse_operator1',
-	'CHAR_UNARY': 'parse_operator1',
-        'CHAR_OP2'  : 'parse_operator2',
-	'CHAR_BANG' : 'parse_operator2',
-        'CHAR_BACK' : 'parse_backslash',
-        'CHAR_DASH' : 'parse_dash',
-        'CHAR_STR'  : 'parse_string',
-        'CHAR_HASH' : 'parse_hash',
-        'CHAR_NUM'  : 'parse_number',
-        'CHAR_SLASH': 'parse_slash',
-        'CHAR_SEMICOLON' : 'parse_char',
-	'CHAR_COMMA': 'parse_char',
-	'CHAR_LEFTPARENS': 'parse_char',
-	'CHAR_RIGHTPARENS': 'parse_char',
-	'CHAR_LEFTBRACE': 'parse_char',
-	'CHAR_RIGHTBRACE': 'parse_char',
-        'CHAR_VAR'  : 'parse_var',
-        'CHAR_OTHER': 'parse_other',
-        'CHAR_MONEY': 'parse_money',
-        'CHAR_TICK' : 'parse_tick',
-        'CHAR_UNDERSCORE': 'parse_underscore',
-        'CHAR_USTRING'   : 'parse_ustring',
-        'CHAR_QSTRING'   : 'parse_qstring',
-        'CHAR_NQSTRING'  : 'parse_nqstring',
-        'CHAR_XSTRING'   : 'parse_xstring',
-        'CHAR_BSTRING'   : 'parse_bstring',
-        'CHAR_ESTRING'   : 'parse_estring',
-        'CHAR_BWORD'     : 'parse_bword'
-        }
+    'CHAR_WORD' : 'parse_word',
+    'CHAR_WHITE': 'parse_white',
+    'CHAR_OP1'  : 'parse_operator1',
+    'CHAR_UNARY': 'parse_operator1',
+    'CHAR_OP2'  : 'parse_operator2',
+    'CHAR_BANG' : 'parse_operator2',
+    'CHAR_BACK' : 'parse_backslash',
+    'CHAR_DASH' : 'parse_dash',
+    'CHAR_STR'  : 'parse_string',
+    'CHAR_HASH' : 'parse_hash',
+    'CHAR_NUM'  : 'parse_number',
+    'CHAR_SLASH': 'parse_slash',
+    'CHAR_SEMICOLON' : 'parse_char',
+    'CHAR_COMMA': 'parse_char',
+    'CHAR_LEFTPARENS': 'parse_char',
+    'CHAR_RIGHTPARENS': 'parse_char',
+    'CHAR_LEFTBRACE': 'parse_char',
+    'CHAR_RIGHTBRACE': 'parse_char',
+    'CHAR_VAR'  : 'parse_var',
+    'CHAR_OTHER': 'parse_other',
+    'CHAR_MONEY': 'parse_money',
+    'CHAR_TICK' : 'parse_tick',
+    'CHAR_UNDERSCORE': 'parse_underscore',
+    'CHAR_USTRING'   : 'parse_ustring',
+    'CHAR_QSTRING'   : 'parse_qstring',
+    'CHAR_NQSTRING'  : 'parse_nqstring',
+    'CHAR_XSTRING'   : 'parse_xstring',
+    'CHAR_BSTRING'   : 'parse_bstring',
+    'CHAR_ESTRING'   : 'parse_estring',
+    'CHAR_BWORD'     : 'parse_bword'
+    }
     print()
     print("typedef size_t (*pt2Function)(sfilter *sf);")
     print("static const pt2Function char_parse_map[] = {")
-    pos = 0
-    for character in obj['charmap']:
+    for pos, character in enumerate(obj['charmap']):
         print("   &%s, /* %d */" % (fnmap[character], pos))
-        pos += 1
     print("};")
     print()
 
@@ -99,15 +97,11 @@ static size_t parse_bword(sfilter * sf);
     #  load them
     keywords = obj['keywords']
 
-    for  fingerprint in list(obj['fingerprints']):
-        fingerprint = '0' + fingerprint.upper()
+    for fingerprint in list(obj['fingerprints']):
+        fingerprint = f'0{fingerprint.upper()}'
         keywords[fingerprint] = 'F'
 
-    needhelp = []
-    for key  in keywords.keys():
-        if key != key.upper():
-            needhelp.append(key)
-
+    needhelp = [key for key in keywords.keys() if key != key.upper()]
     for key in needhelp:
         tmpv = keywords[key]
         del keywords[key]

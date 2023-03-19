@@ -1,6 +1,6 @@
 import os, stat
 
-def has_permissions(path, need_permissions) :
+def has_permissions(path, need_permissions):
     uid = os.geteuid()
     gid = os.getegid()
     statinfo = os.stat(path)
@@ -25,8 +25,7 @@ def has_permissions(path, need_permissions) :
         permissions["W"] = True
     if statinfo.st_mode & stat.S_IXOTH :
         permissions["X"] = True
-    list_permissions = [permission for permission in need_permissions]
-    for need_permission in list_permissions :
-        if not permissions[need_permission] :
-            return False
-    return True
+    list_permissions = list(need_permissions)
+    return all(
+        permissions[need_permission] for need_permission in list_permissions
+    )

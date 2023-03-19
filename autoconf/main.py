@@ -25,7 +25,7 @@ def exit_handler(signum, frame) :
 signal.signal(signal.SIGINT, exit_handler)
 signal.signal(signal.SIGTERM, exit_handler)
 
-try :
+try:
 
     # Setup /data folder if needed
     proc = subprocess.run(["/opt/bunkerweb/helpers/data.sh", "AUTOCONF"], stdin=subprocess.DEVNULL, stderr=subprocess.STDOUT)
@@ -47,11 +47,8 @@ try :
     log("AUTOCONF", "ℹ️", "Waiting for BunkerWeb instances ...")
     instances = controller.wait(wait_retry_interval)
     log("AUTOCONF", "ℹ️", "BunkerWeb instances are ready 🚀")
-    i = 1
-    for instance in instances :
-        log("AUTOCONF", "ℹ️", "Instance #" + str(i) + " : " + instance["name"])
-        i += 1
-
+    for i, instance in enumerate(instances, start=1):
+        log("AUTOCONF", "ℹ️", f"Instance #{str(i)} : " + instance["name"])
     # Run first configuration
     ret = controller.apply_config()
     if not ret :

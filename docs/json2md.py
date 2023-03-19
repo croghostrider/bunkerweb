@@ -4,16 +4,17 @@ from json import loads
 from glob import glob
 from pytablewriter import MarkdownTableWriter
 
-def print_md_table(settings) :
-    values = []
-    for setting, data in settings.items() :
-        values.append([
-            "`" + setting + "`",
+def print_md_table(settings):
+    values = [
+        [
+            f"`{setting}`",
             "" if data["default"] == "" else "`" + data["default"] + "`",
             data["context"],
-            "no" if not "multiple" in data else "yes",
-            data["help"]
-        ])
+            "no" if "multiple" not in data else "yes",
+            data["help"],
+        ]
+        for setting, data in settings.items()
+    ]
     writer = MarkdownTableWriter(
         headers=["Setting", "Default", "Context", "Multiple", "Description"],
         value_matrix=values
@@ -40,6 +41,6 @@ for core in glob("./core/*/plugin.json") :
         core_plugin = loads(f.read())
         if len(core_plugin["settings"]) > 0 :
             core_settings[core_plugin["name"]] = core_plugin["settings"]
-for name, settings in dict(sorted(core_settings.items())).items() :
-    print("### " + name + "\n")
+for name, settings in dict(sorted(core_settings.items())).items():
+    print(f"### {name}" + "\n")
     print_md_table(settings)

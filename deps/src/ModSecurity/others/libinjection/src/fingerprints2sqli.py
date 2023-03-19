@@ -37,18 +37,13 @@ def fingerprint_to_sqli():
     mode = 'print'
     fingerprints = []
     with open('fingerprints.txt', 'r') as openfile:
-        for line in openfile:
-            fingerprints.append(line.strip())
-
+        fingerprints.extend(line.strip() for line in openfile)
     for fingerprint in fingerprints:
-        sql = []
-        for char in fingerprint:
-            sql.append(RMAP[char])
-
-        sqlstr = ' '.join(sql)
+        sql = [RMAP[char] for char in fingerprint]
         if mode == 'print':
             print(fingerprint, ' '.join(sql))
         else:
+            sqlstr = ' '.join(sql)
             args = ['./fptool', '-0', sqlstr]
             actualfp = subprocess.check_output(args).strip()
             if fingerprint != actualfp:

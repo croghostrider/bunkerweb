@@ -44,9 +44,8 @@ def print_token(tok):
 def lookup(state, stype, keyword):
     keyword = keyword.upper()
     if stype == 'v':
-        keyword = '0' + keyword
-    ch = words.get(keyword, '')
-    return ch
+        keyword = f'0{keyword}'
+    return words.get(keyword, '')
 
 sqli = '1 union all select 1 --'
 

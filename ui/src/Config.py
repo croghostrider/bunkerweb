@@ -31,9 +31,8 @@ class Config:
 
             self.__plugins.append(plugin)
 
-            if "ui" in content:
-                if "template.html" in listdir(f"{foldername}/ui"):
-                    self.__plugins_pages.append(plugin["name"])
+            if "ui" in content and "template.html" in listdir(f"{foldername}/ui"):
+                self.__plugins_pages.append(plugin["name"])
 
         for foldername in iglob("/opt/bunkerweb/core/*"):
             content = listdir(foldername)
@@ -45,9 +44,8 @@ class Config:
 
             self.__plugins.append(plugin)
 
-            if "ui" in content:
-                if "template.html" in listdir(f"{foldername}/ui"):
-                    self.__plugins_pages.append(plugin["name"])
+            if "ui" in content and "template.html" in listdir(f"{foldername}/ui"):
+                self.__plugins_pages.append(plugin["name"])
 
         self.__plugins.sort(key=lambda plugin: plugin.get("name"))
         self.__plugins_pages.sort()
@@ -77,7 +75,7 @@ class Config:
 
         data = {}
         for line in env.split("\n"):
-            if not "=" in line:
+            if "=" not in line:
                 continue
             var = line.split("=")[0]
             val = line.replace(f"{var}=", "", 1)
@@ -132,7 +130,7 @@ class Config:
             servers.append(server_name)
 
         conf["SERVER_NAME"] = " ".join(servers)
-        env_file = "/tmp/" + str(uuid4()) + ".env"
+        env_file = f"/tmp/{str(uuid4())}.env"
         self.__dict_to_env(env_file, conf)
         proc = run(
             [
@@ -215,7 +213,7 @@ class Config:
 
                 setting = k
             else:
-                setting = k[0 : k.rfind("_")]
+                setting = k[:k.rfind("_")]
                 if (
                     setting not in self.__plugins_settings
                     or "multiple" not in self.__plugins_settings[setting]
@@ -314,7 +312,7 @@ class Config:
             the confirmation message
         """
         self.__gen_conf(self.get_config() | variables, self.get_services())
-        return f"The global configuration has been edited."
+        return "The global configuration has been edited."
 
     def delete_service(self, service_name: str) -> Tuple[str, int]:
         """Deletes a service

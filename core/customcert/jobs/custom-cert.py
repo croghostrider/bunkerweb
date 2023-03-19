@@ -27,36 +27,47 @@ def check_cert(cert_path) :
 
 status = 0
 
-try :
+try:
 
     os.makedirs("/opt/bunkerweb/cache/customcert/", exist_ok=True)
 
     # Multisite case
-    if os.getenv("MULTISITE") == "yes" :
-        for first_server in os.getenv("SERVER_NAME").split(" ") :
-            if os.getenv(first_server + "_USE_CUSTOM_HTTPS", os.getenv("USE_CUSTOM_HTTPS")) != "yes" :
+    if os.getenv("MULTISITE") == "yes":
+        for first_server in os.getenv("SERVER_NAME").split(" "):
+            if (
+                os.getenv(
+                    f"{first_server}_USE_CUSTOM_HTTPS",
+                    os.getenv("USE_CUSTOM_HTTPS"),
+                )
+                != "yes"
+            ):
                 continue
             if first_server == "" :
                 continue
-            cert_path = os.getenv(first_server + "_CUSTOM_HTTPS_CERT")
-            logger.log("CUSTOM-CERT", "ℹ️", "Checking if certificate " + cert_path + " changed ...")
-            need_reload = check_cert(cert_path)
-            if need_reload :
-                logger.log("CUSTOM-CERT", "ℹ️", "Detected change for certificate " + cert_path)
+            cert_path = os.getenv(f"{first_server}_CUSTOM_HTTPS_CERT")
+            logger.log(
+                "CUSTOM-CERT",
+                "ℹ️",
+                f"Checking if certificate {cert_path} changed ...",
+            )
+            if need_reload := check_cert(cert_path):
+                logger.log("CUSTOM-CERT", "ℹ️", f"Detected change for certificate {cert_path}")
                 status = 1
-            else :
-                logger.log("CUSTOM-CERT", "ℹ️", "No change for certificate " + cert_path)
+            else:
+                logger.log("CUSTOM-CERT", "ℹ️", f"No change for certificate {cert_path}")
 
-    # Singlesite case
-    elif os.getenv("USE_CUSTOM_HTTPS") == "yes" and os.getenv("SERVER_NAME") != "" :
+    elif os.getenv("USE_CUSTOM_HTTPS") == "yes" and os.getenv("SERVER_NAME") != "":
         cert_path = os.getenv("CUSTOM_HTTPS_CERT")
-        logger.log("CUSTOM-CERT", "ℹ️", "Checking if certificate " + cert_path + " changed ...")
-        need_reload = check_cert(cert_path)
-        if need_reload :
-            logger.log("CUSTOM-CERT", "ℹ️", "Detected change for certificate " + cert_path)
+        logger.log(
+            "CUSTOM-CERT",
+            "ℹ️",
+            f"Checking if certificate {cert_path} changed ...",
+        )
+        if need_reload := check_cert(cert_path):
+            logger.log("CUSTOM-CERT", "ℹ️", f"Detected change for certificate {cert_path}")
             status = 1
-        else :
-            logger.log("CUSTOM-CERT", "ℹ️", "No change for certificate " + cert_path)
+        else:
+            logger.log("CUSTOM-CERT", "ℹ️", f"No change for certificate {cert_path}")
 
 except :
     status = 2

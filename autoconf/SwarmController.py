@@ -18,20 +18,24 @@ class SwarmController(Controller, ConfigCaller) :
     def _get_controller_instances(self) :
         return self.__client.services.list(filters={"label" : "bunkerweb.AUTOCONF"})
     
-    def _to_instances(self, controller_instance) :
+    def _to_instances(self, controller_instance):
         instances = []
         instance_env = {}
-        for env in controller_instance.attrs["Spec"]["TaskTemplate"]["ContainerSpec"]["Env"] :
+        for env in controller_instance.attrs["Spec"]["TaskTemplate"]["ContainerSpec"]["Env"]:
             variable = env.split("=")[0]
-            value = env.replace(variable + "=", "", 1)
+            value = env.replace(f"{variable}=", "", 1)
             if self._is_setting(variable) :
                 instance_env[variable] = value
-        for task in controller_instance.tasks() :
-            instance = {}
-            instance["name"] = task["ID"]
-            instance["hostname"] = controller_instance.name + "." + task["NodeID"] + "." + task["ID"]
-            instance["health"] = task["Status"]["State"] == "running"
-            instance["env"] = instance_env
+        for task in controller_instance.tasks():
+            instance = {
+                "name": task["ID"],
+                "hostname": f"{controller_instance.name}."
+                + task["NodeID"]
+                + "."
+                + task["ID"],
+                "health": task["Status"]["State"] == "running",
+                "env": instance_env,
+            }
             instances.append(instance)
         return instances
 
@@ -49,37 +53,38 @@ class SwarmController(Controller, ConfigCaller) :
             service[real_variable] = value
         return [service]
 
-    def _get_static_services(self) :
+    def _get_static_services(self):
         services = []
         variables = {}
-        for instance in self.__client.services.list(filters={"label" : "bunkerweb.AUTOCONF"}) :
-            for env in instance.attrs["Spec"]["TaskTemplate"]["ContainerSpec"]["Env"] :
+        for instance in self.__client.services.list(filters={"label" : "bunkerweb.AUTOCONF"}):
+            for env in instance.attrs["Spec"]["TaskTemplate"]["ContainerSpec"]["Env"]:
                 variable = env.split("=")[0]
-                value = env.replace(variable + "=", "", 1)
+                value = env.replace(f"{variable}=", "", 1)
                 variables[variable] = value
         server_names = []
         if "SERVER_NAME" in variables and variables["SERVER_NAME"] != "" :
             server_names = variables["SERVER_NAME"].split(" ")
-        for server_name in server_names :
-            service = {}
-            service["SERVER_NAME"] = server_name
-            for variable, value in variables.items() :
+        for server_name in server_names:
+            service = {"SERVER_NAME": server_name}
+            for variable, value in variables.items():
                 prefix = variable.split("_")[0]
-                real_variable = variable.replace(prefix + "_", "", 1)
+                real_variable = variable.replace(f"{prefix}_", "", 1)
                 if prefix == server_name and self._is_multisite_setting(real_variable) :
                     service[real_variable] = value
             services.append(service)
         return services
 
-    def get_configs(self) :
-        configs = {}
-        for config_type in self._supported_config_types :
-            configs[config_type] = {}
-        for config in self.__client.configs.list(filters={"label" : "bunkerweb.CONFIG_TYPE"}) :
+    def get_configs(self):
+        configs = {config_type: {} for config_type in self._supported_config_types}
+        for config in self.__client.configs.list(filters={"label" : "bunkerweb.CONFIG_TYPE"}):
             config_type = config.attrs["Spec"]["Labels"]["bunkerweb.CONFIG_TYPE"]
             config_name = config.name
-            if config_type not in self._supported_config_types :
-                log("SWARM-CONTROLLER", "⚠️", "Ignoring unsupported CONFIG_TYPE " + config_type + " for Config " + config_name)
+            if config_type not in self._supported_config_types:
+                log(
+                    "SWARM-CONTROLLER",
+                    "⚠️",
+                    f"Ignoring unsupported CONFIG_TYPE {config_type} for Config {config_name}",
+                )
                 continue
             config_site = ""
             if "bunkerweb.CONFIG_SITE" in config.attrs["Spec"]["Labels"] :
@@ -93,10 +98,10 @@ class SwarmController(Controller, ConfigCaller) :
         self._config.start_scheduler()
         return ret
                 
-    def __event(self, event_type) :
-        for event in self.__client.events(decode=True, filters={"type": event_type}) :
+    def __event(self, event_type):
+        for _ in self.__client.events(decode=True, filters={"type": event_type}):
             self.__internal_lock.acquire()
-            try :
+            try:
                 self._instances = self.get_instances()
                 self._services = self.get_services()
                 self._configs = self.get_configs()
@@ -104,21 +109,21 @@ class SwarmController(Controller, ConfigCaller) :
                     self.__internal_lock.release()
                     continue
                 log("SWARM-CONTROLLER", "ℹ️", "Catched Swarm event, deploying new configuration ...")
-                ret = self.apply_config()
-                if not ret :
-                    log("SWARM-CONTROLLER", "❌", "Error while deploying new configuration ...")
-                else :
+                if ret := self.apply_config():
                     log("SWARM-CONTROLLER", "ℹ️", "Successfully deployed new configuration 🚀")
+                else:
+                    log("SWARM-CONTROLLER", "❌", "Error while deploying new configuration ...")
             except :
                 log("SWARM-CONTROLLER", "❌", "Exception while processing events :")
                 print(format_exc())
             self.__internal_lock.release()
     
-    def process_events(self) :
+    def process_events(self):
         event_types = ["service", "config"]
-        threads = []
-        for event_type in event_types :
-            threads.append(Thread(target=self.__event, args=(event_type,)))
+        threads = [
+            Thread(target=self.__event, args=(event_type,))
+            for event_type in event_types
+        ]
         for thread in threads :
             thread.start()
         for thread in threads :
